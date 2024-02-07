@@ -79,11 +79,11 @@ class SoftQAgent(BaseAgent):
                 old_target = target_next_softqs
                 target_curr_softqs = torch.stack([softq(states)
                                                 for softq in self.target_softqs], dim=0)
-                target_lb, target_ub = bounds(self.gamma, rewards, dones, target_next_softqs, target_curr_softqs)
+                target_lb, target_ub = bounds(self.beta, self.gamma, rewards, dones, target_next_softqs, target_curr_softqs)
 
                 online_curr_softqs = torch.stack([softq(states)
                                                 for softq in self.online_softqs], dim=0)
-                online_lb, online_ub = bounds(self.gamma, rewards, dones, online_softq_next, online_curr_softqs)
+                online_lb, online_ub = bounds(self.beta, self.gamma, rewards, dones, online_softq_next, online_curr_softqs)
 
                 # Take best bounds:
                 lb = torch.max(online_lb, target_lb)
