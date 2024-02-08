@@ -1,9 +1,8 @@
-import time
 from BoundedSQL import SoftQAgent
-
+import wandb
 
 sql_cpole = {
-    'batch_size': 512,
+    'batch_size': 64,
     'beta': 0.1,
     'gamma': 0.98,
     'hidden_dim': 64,
@@ -28,16 +27,17 @@ def main():
     # env_id = 'MountainCar-v0'
     # env_id = 'Drug-v0'
 
-    
+    wandb.init(project='clipping', entity='jacobhadamczyk', sync_tensorboard=True)
+    clip = True
+    wandb.log({'clip': clip})
     agent = SoftQAgent(env_id, **sql_cpole, device='cuda', log_interval=500,
-                 tensorboard_log='pong', num_nets=1, render=False, aggregator='min',
-                 scheduler_str='none', clip_target=True)
+                 tensorboard_log='pong', num_nets=2, render=False, aggregator='min',
+                 scheduler_str='none', clip_target=clip)
     # Measure the time it takes to learn:
-    t0 = time.thread_time_ns()
-    agent.learn(total_timesteps=100_000)
-    t1 = time.thread_time_ns()
-    print(f"Time to learn: {(t1-t0)/1e9} seconds")
+    agent.learn(total_timesteps=20_000)
+    wandb.finish()
 
 
 if __name__ == '__main__':
-    main()
+    for _ in range(5):
+        main()

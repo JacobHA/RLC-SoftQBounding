@@ -79,15 +79,18 @@ class SoftQAgent(BaseAgent):
                 old_target = target_next_softqs
                 target_curr_softqs = torch.stack([softq(states)
                                                 for softq in self.target_softqs], dim=0)
-                target_lb, target_ub = bounds(self.beta, self.gamma, rewards, dones, target_next_softqs, target_curr_softqs)
+                target_lb, target_ub = bounds(self.beta, self.gamma, rewards, dones, actions, target_next_softqs, target_curr_softqs)
 
                 online_curr_softqs = torch.stack([softq(states)
                                                 for softq in self.online_softqs], dim=0)
-                online_lb, online_ub = bounds(self.beta, self.gamma, rewards, dones, online_softq_next, online_curr_softqs)
+                online_lb, online_ub = bounds(self.beta, self.gamma, rewards, dones, actions, online_softq_next, online_curr_softqs)
 
                 # Take best bounds:
                 lb = torch.max(online_lb, target_lb)
                 ub = torch.min(online_ub, target_ub)
+
+                # lb = torch.max(lb, torch.ones_like(lb)*0)
+                # ub = torch.min(ub, torch.ones_like(ub)*1/(1-self.gamma))
 
                 # Recast the bounds to be same shape as target_next_softqs:
                 lb = lb.repeat(self.num_nets, 1, self.nA)
@@ -107,7 +110,7 @@ class SoftQAgent(BaseAgent):
 
                 # Log the average upper bound, lower bound, and target:
                 for name, vals in zip(['lb', 'ub', 'target_q'],
-                                       [target_lb, target_ub, target_next_softqs]):
+                                       [lb, ub, target_next_softqs]):
                     self.logger.record(f"train/{name}_mean", vals.mean().item())
 
 

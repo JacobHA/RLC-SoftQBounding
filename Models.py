@@ -216,7 +216,7 @@ class SoftQNet(torch.nn.Module):
             if x.shape[0] == self.nS:
                 x = x.unsqueeze(0)
             else: 
-                x = x.squeeze(1)
+                x = x.squeeze()
                 pass
         else:
             if len(x.shape) > len(self.nS):
