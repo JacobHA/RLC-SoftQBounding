@@ -16,10 +16,8 @@ HPARAM_ATTRS = {
     'buffer_size': 'buffer_size',
     'target_update_interval': 'target_update_interval',
     'tau': 'tau',
-    'theta_update_interval': 'theta_update_interval',
     'hidden_dim': 'hidden_dim',
     'num_nets': 'num_nets',
-    'tau_theta': 'tau_theta',
     'gradient_steps': 'gradient_steps',
     'train_freq': 'train_freq',
     'max_grad_norm': 'max_grad_norm',
@@ -40,7 +38,6 @@ LOG_PARAMS = {
 int_args = ['batch_size',
             'buffer_size',
             'target_update_interval',
-            'theta_update_interval',
             'hidden_dim',
             'num_nets',
             'gradient_steps',
@@ -67,10 +64,8 @@ class BaseAgent:
                  buffer_size: int = 100_000,
                  target_update_interval: int = 10_000,
                  tau: float = 1.0,
-                 theta_update_interval: int = 1,
                  hidden_dim: int = 64,
                  num_nets: int = 2,
-                 tau_theta: float = 0.995,
                  gradient_steps: int = 1,
                  train_freq: Union[int, Tuple[int, str]] = 1,
                  max_grad_norm: float = 10,
@@ -122,8 +117,7 @@ class BaseAgent:
             self.device = device
         self.save_checkpoints = save_checkpoints
         self.log_interval = log_interval
-        self.tau_theta = tau_theta
-        self.theta_update_interval = theta_update_interval
+
         self.train_freq = train_freq
         if isinstance(train_freq, tuple):
             raise NotImplementedError("train_freq as a tuple is not supported yet.\
@@ -155,7 +149,6 @@ class BaseAgent:
         if isinstance(self.env.action_space, gym.spaces.Discrete):
             self.nA = self.env.action_space.n
 
-        self.theta = torch.Tensor([0.0]).to(self.device)
         self.eval_auc = 0
         self.num_episodes = 0
 
@@ -189,12 +182,9 @@ class BaseAgent:
         Sample the replay buffer and do the updates
         (gradient descent and update target networks)
         """
-        self.new_theta_pending = 0
-        self.new_theta_counter = 1
+        
         # Increase update counter
         self._n_updates += gradient_steps
-        # average self.theta over multiple gradient steps
-        self.new_thetas = torch.zeros(gradient_steps).to(self.device)
         for grad_step in range(gradient_steps):
             # Sample a batch from the replay buffer:
             batch = self.replay_buffer.sample(batch_size)
@@ -311,10 +301,6 @@ class BaseAgent:
 
         if self.env_steps % self.target_update_interval == 0:
             self._update_target()
-
-        if self.env_steps % self.log_interval == 0:
-            # Log info from this training cycle:
-            self.logger.record("train/theta", self.theta.item())
 
     def _log_stats(self):
         # end timer:
