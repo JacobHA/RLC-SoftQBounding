@@ -221,17 +221,14 @@ class BaseAgent:
             self.num_episodes += 1
             self.rollout_reward = 0
             avg_ep_len = 0
-            entropy = 0
             while not done and self.env_steps < total_timesteps:
                 # take a random action:
                 # if self.env_steps < self.learning_starts:
                 #     action = self.env.action_space.sample()
                 # else:
-                action, kl = self.exploration_policy(state)
+                action = self.exploration_policy(state)
                 if isinstance(self.env.action_space, gym.spaces.Discrete):
                     action_freqs[action] += 1
-                # Add KL divergence bw the current policy and the prior:
-                entropy += float(kl)
                 # action = self.online_logus.greedy_action(state)
                 # action = self.env.action_space.sample()
 
@@ -265,18 +262,9 @@ class BaseAgent:
             if done:
                 self.rollout_reward
                 self.logger.record("rollout/ep_reward", self.rollout_reward)
-                free_energy = (self.rollout_reward + 1/self.beta * entropy)
-                try:
-                    free_energy = free_energy.item()
-                except:
-                    pass
-                # entropy = 0
-                self.logger.record("rollout/neg_free_energy",
-                                   free_energy / avg_ep_len)
-                self.logger.record("rollout/avg_entropy", entropy / avg_ep_len)
+                
                 self.logger.record("rollout/avg_episode_length", avg_ep_len)
-                self.logger.record("rollout/avg_reward_rate",
-                                   self.rollout_reward / avg_ep_len)
+                
                 if self.use_wandb:
                     wandb.log({'rollout/reward': self.rollout_reward})
                 if isinstance(self.env.action_space, gym.spaces.Discrete):
@@ -298,6 +286,12 @@ class BaseAgent:
         if self.train_this_step:
             if self.env_steps > self.learning_starts:
                 self._train(self.gradient_steps, self.batch_size)
+                # self.pretrain_descent(self.gradient_steps, self.batch_size)
+
+            else:
+                # Pretrain:
+                if self.pretrain:
+                    self.pretrain_descent(self.gradient_steps, self.batch_size)
 
         if self.env_steps % self.target_update_interval == 0:
             self._update_target()
@@ -320,19 +314,7 @@ class BaseAgent:
         self.lr = self.optimizers.get_lr()
         log_class_vars(self, self.logger, LOG_PARAMS, use_wandb=self.use_wandb)
 
-        if self.is_tabular:
-            # Record the error in the eigenvector:
-            if self.algo_name == 'LogU':
-                log = True
-            elif self.algo_name == 'U':
-                log = False
-            else:
-                raise ValueError(
-                    f"Unknown agent name: {self.name}. Use U/LogU (defaults).")
-            fa_eigvec = get_eigvec_values(self, logu=log).flatten()
-            err = np.abs(self.true_eigvec - fa_eigvec).max()
-            self.logger.record('train/eigvec_err', err.item())
-
+        
         if self.use_wandb:
             wandb.log({'env_steps': self.env_steps,
                        'eval/avg_reward': self.avg_eval_rwd})
