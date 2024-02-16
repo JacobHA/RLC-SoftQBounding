@@ -156,9 +156,9 @@ class OnlineSoftQNets(OnlineNets):
         if prior is None:
             prior = 1 / self.nA
         with torch.no_grad():
-            q_as = torch.stack([net.forward(state) for net in self], dim=1)
+            q_as = torch.stack([net.forward(state) for net in self], dim=-1)
             q_as = q_as.squeeze(0)
-            q_a = self.aggregator_fn(q_as, dim=0)
+            q_a = self.aggregator_fn(q_as, dim=-1)
 
 
             if greedy:
