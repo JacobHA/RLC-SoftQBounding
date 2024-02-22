@@ -53,7 +53,8 @@ def add_to_plot(ax, df, name):
     return ax
 
 # Get the data:
-for data_folder in ['clip-0.98data', '0.98data']:
+gamma=0.98
+for data_folder in [f'clip-{gamma}data', f'{gamma}data']:
     df = load_data(data_folder)
     fig, ax = plt.subplots()
     

@@ -812,7 +812,7 @@ MAPS = {
         "WWWWWFF",
         "FFFFFFF",
         "FFWWWWW",
-        "FFFFFGF",
+        "FFFFFCF",
         "FFFFFFF"
     ],
     "8x8empty": [

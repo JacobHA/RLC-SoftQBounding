@@ -87,10 +87,14 @@ class SoftQAgent(BaseAgent):
                 ub = torch.min(ub, torch.ones_like(ub)*1/(1-self.gamma))
 
             # Recast the bounds to be same shape as target_next_softqs:
-            clipped_next_softqs = torch.clamp(target_next_softqs, min=lb, max=ub)
+            # clipped_next_softqs = torch.clamp(target_next_softqs, min=lb, max=ub)
 
-            if 'hard' in self.clip_method:
-                target_next_softqs = clipped_next_softqs
+            # if 'hard' in self.clip_method:
+            #     target_next_softqs = clipped_next_softqs
+
+            # if 'anti' in self.clip_method:
+            #     target_next_softqs = clipped_next_softqs
+                
                 
             # Count number of clips by comparing old and new target:
             num_clips = (old_target != target_next_softqs).sum().item()
@@ -122,6 +126,9 @@ class SoftQAgent(BaseAgent):
             # rewards += 0.001 * ub
             expected_curr_softq = rewards + self.gamma * next_v * (1-dones)
             expected_curr_softq = expected_curr_softq.squeeze(1)
+            # clip the expected curr soft q:
+            if 'hard' in self.clip_method:
+                expected_curr_softq = torch.clamp(expected_curr_softq, min=lb.squeeze(), max=ub.squeeze())
 
         curr_softq = torch.stack([softq(states).squeeze().gather(1, actions.long())
                         for softq in self.online_softqs], dim=0)
@@ -148,6 +155,9 @@ class SoftQAgent(BaseAgent):
         # Calculate the softq ("critic") loss:
         loss = 0.5*sum(self.loss_fn(softq, expected_curr_softq)
                        for softq in curr_softq)
+        if 'soft' in self.clip_method:
+            # add the magnitude of bound violations to the loss:
+            loss += 0.01 * avg_violation
         # log the loss:
         self.logger.record("train/loss", loss.item())
         return loss

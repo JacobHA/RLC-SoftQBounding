@@ -22,7 +22,7 @@ class SoftQLearning():
         self.clip = clip
         self.save_data = save_data
         if save_data:
-            prefix = 'clip-'*clip+str(gamma)
+            prefix = 'clip-'*bool(clip)+str(gamma)
             # count how many files are in data folder:
             if not os.path.exists(f'{prefix}data'):
                 os.makedirs(f'{prefix}data')
@@ -166,9 +166,9 @@ class SoftQLearning():
                     self.ub_over_time.append(self.ub.mean())
                     self.reward_over_time.append(eval_rwd)
                     self.loss_over_time.append(np.abs(delta)[0])
-                    # Save std of lb and ub:
-                    self.lb_stds.append(self.lb.std())
-                    self.ub_stds.append(self.ub.std())
+                    # Save mins and maxs of lbs and ubs and Q:
+                    self.lb_stds.append(self.lb.max() - self.lb.min())
+                    self.ub_stds.append(self.ub.max() - self.ub.min())
                     self.q_stds.append(self.Q.std())
             
                     # Save the data:
@@ -322,25 +322,32 @@ def plot_3d(desc, Q, lb, ub):
     plt.close('all')
 
 
-def main():
-    env = ModifiedFrozenLake(map_name='11x11dzigzag',cyclic_mode=False,
-           slippery=0)
+def main(env_str, clip, gamma):
+    # 11x11dzigzag
+    env = ModifiedFrozenLake(map_name=env_str,cyclic_mode=False,slippery=0)
     env = TimeLimit(env, max_episode_steps=1000)
     # env = gymnasium.make('FrozenLake-v1', is_slippery=False)
     beta = 5
     gamma = 0.98
-    learning_rate = 1.0
+    # learning_rate = 1.0
     # learning_rate = 0.002
     def learning_rate_schedule(t):
         # Exponential decay:
-        return 0.3
-        return max(learning_rate * (0.9 ** (t//10000)), 1e-6)
+        return 0.5
+        # return max(learning_rate * (0.9 ** (t//10000)), 1e-6)
     sarsa = SoftQLearning(env, beta, gamma, learning_rate_schedule,
-                           plot=False, save_data=True, clip=False)
-    max_steps = 1_000_000
+                           plot=0, save_data=1, clip=clip)
+    max_steps = 50_000
 
-    total_reward = sarsa.train(max_steps, render=False, greedy_eval=False, eval_freq=1000)
+    total_reward = sarsa.train(max_steps, render=False, greedy_eval=False, eval_freq=100)
 
 
 if __name__ == '__main__':
-    main()
+    import argparse
+    parser = argparse.ArgumentParser()
+    parser.add_argument('--env', type=str, default='7x7zigzag')
+    parser.add_argument('--clip', type=bool, default=False)
+    parser.add_argument('--gamma', type=float, default=0.98)
+    args = parser.parse_args()
+
+    main(env_str=args.env, clip=args.clip, gamma=args.gamma)

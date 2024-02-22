@@ -54,7 +54,7 @@ def main():
     # env_id = 'Taxi-v3'
     # env_id = 'CliffWalking-v0'
     # env_id = 'Acrobot-v1'
-    # env_id = 'LunarLander-v2'
+    env_id = 'LunarLander-v2'
     # env_id = 'ALE/Pong-v5'
     # env_id = 'PongNoFrameskip-v4'
     # env_id = 'FrozenLake-v1'
@@ -67,14 +67,15 @@ def main():
         env_str = env_id
 
     wandb.init(project='clipping', entity='jacobhadamczyk', sync_tensorboard=True)
-    clip_method = 'hard'
+    clip_method = 'none'
     pretrain = False
     wandb.log({'clip_method': clip_method, 'env_id': env_str, 'pretrain': pretrain})
-    agent = SoftQAgent(env_id, **sql_cpole, device='cpu', log_interval=500,
+    agent = SoftQAgent(env_id, **sql_lunar, device='cuda', log_interval=500,
                  tensorboard_log='pong', num_nets=2, render=False, aggregator='min',
                  scheduler_str='none', clip_method=clip_method, pretrain=pretrain)
+    
     # Measure the time it takes to learn:
-    agent.learn(total_timesteps=30_000)
+    agent.learn(total_timesteps=300_000)
     wandb.finish()
 
 
