@@ -15,13 +15,6 @@ from torch.distributions import Normal
 
 from utils import is_tabular
 
-def is_image_space_simple(observation_space, is_vector_env=False):
-    if is_vector_env:
-        return isinstance(observation_space, spaces.Box) and len(observation_space.shape) == 4
-    return isinstance(observation_space, spaces.Box) and len(observation_space.shape) == 3
-NORMALIZE_IMG = False
-
-
 
 class EmptyScheduler(LRScheduler):
     def __init__(self, *args, **kwargs):
@@ -157,12 +150,12 @@ class OnlineSoftQNets(OnlineNets):
             prior = 1 / self.nA
         with torch.no_grad():
             q_as = torch.stack([net.forward(state) for net in self], dim=-1)
-            q_as = q_as.squeeze(0)
+            # q_as = q_as.squeeze(0)
             q_a = self.aggregator_fn(q_as, dim=-1)
 
 
             if greedy:
-                action = torch.argmax(q_a).cpu().numpy()
+                action = torch.argmax(q_a).cpu().item()
             else:
                 # pi propto e^beta Q:
                 # first subtract a baseline from q_a:
@@ -171,7 +164,7 @@ class OnlineSoftQNets(OnlineNets):
                 pi = prior * torch.exp(clamped_exp)
                 pi = pi / torch.sum(pi)
                 a = Categorical(pi).sample()
-                action = a.cpu().numpy()
+                action = a.cpu().item()
         return action
 
     
@@ -208,17 +201,17 @@ class SoftQNet(torch.nn.Module):
             x = torch.tensor(x, device=self.device)  # Convert to PyTorch tensor
         
         # x = x.detach()
-        x = preprocess_obs(x, self.env.observation_space, normalize_images=NORMALIZE_IMG)
+        x = preprocess_obs(x, self.env.observation_space)
         assert x.dtype == torch.float32, "Input must be a float tensor."
 
-        if self.is_tabular:
-            # Single state
-            if x.shape[0] == self.nS:
-                x = x.unsqueeze(0)
-            else: 
-                x = x.squeeze()
-                pass
-        else:
+        # if self.is_tabular:
+        #     # Single state
+        #     if x.shape[0] == self.nS:
+        #         x = x.unsqueeze(0)
+        #     else: 
+        #         x = x.squeeze()
+        #         pass
+        if True:
             if len(x.shape) > len(self.nS):
                 # in batch mode:
                 pass
