@@ -67,22 +67,28 @@ def main():
     # env_id = 'Taxi-v3'
     # env_id = 'CliffWalking-v0'
     # env_id = 'Acrobot-v1'
-    env_id = 'LunarLander-v2'
+    # env_id = 'LunarLander-v2'
     # env_id = 'ALE/Pong-v5'
     # env_id = 'FrozenLake-v1'
     # env_id = 'MountainCar-v0'
     # env_id = 'Drug-v0'
     
+    id_to_params = {
+        'CartPole-v1': sql_cpole,
+        'Acrobot-v1': sql_acro,
+        'LunarLander-v2': sql_lunar,
+    }
+
     if not isinstance(env_id, str):
         env_str = map_name
     else:
         env_str = env_id
 
     wandb.init(project='clipping', entity='jacobhadamczyk', sync_tensorboard=True)
-    clip_method = 'soft-hard'
+    clip_method = 'soft'
     pretrain = False
-    wandb.log({'clip_method': clip_method+'noA', 'env_id': env_str, 'pretrain': pretrain})
-    agent = SoftQAgent(env_id, **sql_lunar, device='cuda', log_interval=500,
+    wandb.log({'clip_method': clip_method, 'env_id': env_str, 'pretrain': pretrain})
+    agent = SoftQAgent(env_id, **id_to_params[env_id], device='cpu', log_interval=500,
                  tensorboard_log='pong', num_nets=2, render=False, aggregator='max',
                  scheduler_str='none', clip_method=clip_method, pretrain=pretrain)
     
