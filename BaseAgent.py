@@ -304,7 +304,6 @@ class BaseAgent:
         # run the current policy and return the average reward
         self.initial_time = time.process_time_ns()
         avg_reward = 0.
-        # log the action frequencies:
         n_steps = 0
         for ep in range(n_episodes):
             state, _ = self.eval_env.reset()
