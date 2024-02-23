@@ -150,10 +150,10 @@ class SoftQAgent(BaseAgent):
                        for softq in curr_softq)
         if 'soft' in self.clip_method:
             # add the magnitude of bound violations to the loss:
-            clip_loss = (clipped_curr_softq - curr_softq).abs().mean()
+            clip_loss = ((clipped_curr_softq - curr_softq)**2).sum()
             # log the clip loss:
             self.logger.record("train/clip_loss", clip_loss.detach().item())
-            loss += 0.1 * clip_loss
+            loss += 0.05 * clip_loss
         # log the loss:
         self.logger.record("train/loss", loss.item())
         return loss
