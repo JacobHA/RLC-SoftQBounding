@@ -43,6 +43,19 @@ sql_mcar = {
     'train_freq': 2,
 }
 
+sql_acro = {
+    'batch_size': 128,
+    'beta': 2.6,
+    'gamma': 0.99,
+    'hidden_dim': 64,
+    'learning_rate': 0.0066,
+    'learning_starts': 0.1*50_000,
+    'target_update_interval': 100,
+    'tau': 0.92,
+    'train_freq': 9,
+    'gradient_steps': 9,
+}
+
 
 
 def main():
@@ -54,10 +67,9 @@ def main():
     # env_id = 'Taxi-v3'
     # env_id = 'CliffWalking-v0'
     # env_id = 'Acrobot-v1'
-    # env_id = 'LunarLander-v2'
+    env_id = 'LunarLander-v2'
     # env_id = 'ALE/Pong-v5'
-    # env_id = 'PongNoFrameskip-v4'
-    env_id = 'FrozenLake-v1'
+    # env_id = 'FrozenLake-v1'
     # env_id = 'MountainCar-v0'
     # env_id = 'Drug-v0'
     
@@ -69,13 +81,13 @@ def main():
     wandb.init(project='clipping', entity='jacobhadamczyk', sync_tensorboard=True)
     clip_method = 'soft-hard'
     pretrain = False
-    wandb.log({'clip_method': clip_method, 'env_id': env_str, 'pretrain': pretrain})
-    agent = SoftQAgent(env_id, **sql_cpole, device='cpu', log_interval=500,
-                 tensorboard_log='pong', num_nets=2, render=False, aggregator='min',
+    wandb.log({'clip_method': clip_method+'noA', 'env_id': env_str, 'pretrain': pretrain})
+    agent = SoftQAgent(env_id, **sql_lunar, device='cuda', log_interval=500,
+                 tensorboard_log='pong', num_nets=2, render=False, aggregator='max',
                  scheduler_str='none', clip_method=clip_method, pretrain=pretrain)
     
     # Measure the time it takes to learn:
-    agent.learn(total_timesteps=30_000)
+    agent.learn(total_timesteps=300_000)
     wandb.finish()
 
 
