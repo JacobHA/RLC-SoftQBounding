@@ -9,13 +9,13 @@ def net_to_delta(beta, gamma, rewards, dones, actions, next_q_values, curr_q_val
 
     delta = rewards + gamma * V - curr_q_values
     # delta = delta.reshape(-1, 1)
-    delta = delta.gather(1, actions)
+    # delta = delta.gather(1, actions)
 
-    delta_min = th.min(delta[dones == 0])
+    delta_min = th.min(delta[dones.repeat(1,4) == 0])
     # gather delta at actions:
     # delta_min = delta.min(dim=1, keepdim=True)[0]
     # delta_min = th.topk(delta, 3, largest=False).values[-1]
-    delta_max = th.max(delta[dones == 0])
+    delta_max = th.max(delta[dones.repeat(1,4) == 0])
     # delta_max = th.topk(delta, 3, largest=True).values[-1]
     # delta_max = delta.max(dim=1,keepdim=True)[0]
     return delta, delta_min, delta_max
