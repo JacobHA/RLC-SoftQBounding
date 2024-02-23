@@ -118,7 +118,6 @@ class SoftQAgent(BaseAgent):
             target_next_softq = self.aggregator_fn(target_next_softqs, dim=0)
             next_v = 1/self.beta * (torch.logsumexp(
                 self.beta * target_next_softq, dim=-1) - torch.log(torch.Tensor([self.nA])).to(self.device))
-            # next_v = self.aggregator_fn(next_vs, dim=0)
 
             next_v = next_v.reshape(-1, 1)
 
