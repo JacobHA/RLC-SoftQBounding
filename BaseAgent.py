@@ -225,6 +225,7 @@ class BaseAgent:
                 #     action = self.env.action_space.sample()
                 # else:
                 action = self.exploration_policy(state)
+
                 next_state, reward, terminated, truncated, infos = self.env.step(
                     action)
                 self._on_step()
@@ -237,6 +238,11 @@ class BaseAgent:
                      self.train_freq == 0)
 
                 # Add the transition to the replay buffer:
+                action = np.array([action])
+                if isinstance(self.env.observation_space, gym.spaces.Discrete):
+                    # Need to one hot the state and next_state:
+                    state = F.one_hot(torch.tensor(state), self.env.observation_space.n)
+                    next_state = F.one_hot(torch.tensor(next_state), self.env.observation_space.n)
                 sarsa = (state, next_state, action, reward, terminated)
                 self.replay_buffer.add(*sarsa, [infos])
                 state = next_state
