@@ -214,8 +214,6 @@ class BaseAgent:
 
         while self.env_steps < total_timesteps:
             state, _ = self.env.reset()
-            if isinstance(self.env.action_space, gym.spaces.Discrete):
-                action_freqs = torch.zeros(self.nA)
 
             done = False
             self.num_episodes += 1
@@ -227,11 +225,6 @@ class BaseAgent:
                 #     action = self.env.action_space.sample()
                 # else:
                 action = self.exploration_policy(state)
-                if isinstance(self.env.action_space, gym.spaces.Discrete):
-                    action_freqs[action] += 1
-                # action = self.online_logus.greedy_action(state)
-                # action = self.env.action_space.sample()
-
                 next_state, reward, terminated, truncated, infos = self.env.step(
                     action)
                 self._on_step()
@@ -249,32 +242,18 @@ class BaseAgent:
                 state = next_state
                 if self.env_steps % self.log_interval == 0:
                     self._log_stats()
-                    # if (self.env_steps > stop_steps):
-                    # this was too strict. trying this:
-                    if self.env_steps == stop_steps:
-                        if (self.avg_eval_rwd < stop_reward):
-                            wandb.log({'early_stop': True})
-                            return True
 
             if terminated:
-                # self.rollout_reward += 0
                 avg_ep_len += 1
             if done:
                 self.rollout_reward
                 self.logger.record("rollout/ep_reward", self.rollout_reward)
-                
                 self.logger.record("rollout/avg_episode_length", avg_ep_len)
                 
                 if self.use_wandb:
                     wandb.log({'rollout/reward': self.rollout_reward})
-                if isinstance(self.env.action_space, gym.spaces.Discrete):
-                    action_freqs /= action_freqs.sum()
-                    for i, freq in enumerate(action_freqs):
-                        # As percentage:
-                        self.logger.record(
-                            f'rollout/action {i} (%)', freq.item() * 100)
-
-        return False
+                
+        return
 
     def _on_step(self):
         """
@@ -326,18 +305,12 @@ class BaseAgent:
         self.initial_time = time.process_time_ns()
         avg_reward = 0.
         # log the action frequencies:
-        action_freqs = torch.zeros(self.nA)
         n_steps = 0
         for ep in range(n_episodes):
             state, _ = self.eval_env.reset()
             done = False
             while not done:
                 action = self.evaluation_policy(state)
-                # action = self.online_logus.choose_action(state)
-                if isinstance(self.env.action_space, gym.spaces.Discrete):
-                    action_freqs[action] += 1
-                # action = action.item()
-                # action = self.online_logus.choose_action(state)
                 n_steps += 1
 
                 next_state, reward, terminated, truncated, info = self.eval_env.step(
@@ -347,13 +320,6 @@ class BaseAgent:
                 done = terminated or truncated
 
         avg_reward /= n_episodes
-        if isinstance(self.env.action_space, gym.spaces.Discrete):
-            # log the action frequencies:
-            action_freqs /= n_episodes
-            action_freqs /= action_freqs.sum()
-            for i, freq in enumerate(action_freqs):
-                # As percentage:
-                self.logger.record(f'eval/action {i} (%)', freq.item() * 100)
         self.logger.record('eval/avg_episode_length', n_steps / n_episodes)
         final_time = time.process_time_ns()
         eval_time = (final_time - self.initial_time + 1e-12) / 1e9

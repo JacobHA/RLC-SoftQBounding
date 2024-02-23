@@ -122,8 +122,6 @@ class SoftQAgent(BaseAgent):
             next_v = next_v.reshape(-1, 1)
 
             # "Backup" eigenvector equation:
-            # rewards -= 0.01 * (ub - lb)
-            # rewards += 0.001 * ub
             expected_curr_softq = rewards + self.gamma * next_v * (1-dones)
             expected_curr_softq = expected_curr_softq.squeeze(1)
             # clip the expected curr soft q:
@@ -132,24 +130,19 @@ class SoftQAgent(BaseAgent):
 
         curr_softq = torch.stack([softq(states).squeeze().gather(1, actions.long())
                         for softq in self.online_softqs], dim=0)
-        # Calculate the current softq values (feedforward):
+
+        # clip the online curr soft q, then gather the actions:
+        lb = lb.unsqueeze(0).repeat(self.num_nets, 1, 1)
+        ub = ub.unsqueeze(0).repeat(self.num_nets, 1, 1)
+        
+        clipped_curr_softq = torch.clamp(curr_softq, min=lb, max=ub)
+        clipped_curr_softq = clipped_curr_softq.squeeze(2)
         if 'online' in self.clip_method:
-            # with torch.no_grad():
-
-            # clip the online curr soft q, then gather the actions:
-            lb = lb.unsqueeze(0).repeat(self.num_nets, 1, 1)
-            ub = ub.unsqueeze(0).repeat(self.num_nets, 1, 1)
-            
-            curr_softq = torch.clamp(curr_softq, min=lb, max=ub)
-            # tiled_actions =  actions.unsqueeze(0).repeat(self.num_nets, 1, 1)
-            # curr_softq = curr_softq.gather(-1, tiled_actions)#.repeat(1, 1, self.nA))
-
-        # else:
-        #     curr_softq = torch.stack([online_softq(states).squeeze().gather(1, actions.long())
-        #                        for online_softq in self.online_softqs], dim=0)
-
+            curr_softq = clipped_curr_softq
+     
         # num_nets, batch_size, 1 (leftover from actions)
         curr_softq = curr_softq.squeeze(2)
+
         # log the mean online q :
         self.logger.record("train/online_q_mean", curr_softq.mean().item())
         # Calculate the softq ("critic") loss:
@@ -157,7 +150,10 @@ class SoftQAgent(BaseAgent):
                        for softq in curr_softq)
         if 'soft' in self.clip_method:
             # add the magnitude of bound violations to the loss:
-            loss += 0.01 * avg_violation
+            clip_loss = (clipped_curr_softq - curr_softq).abs().mean()
+            # log the clip loss:
+            self.logger.record("train/clip_loss", clip_loss.detach().item())
+            loss += 0.1 * clip_loss
         # log the loss:
         self.logger.record("train/loss", loss.item())
         return loss
@@ -173,7 +169,6 @@ class SoftQAgent(BaseAgent):
             lb, ub = bounds(self.beta, self.gamma, rewards, dones, actions, softq_next, softq_curr)
             # aim to minimize the difference between the upper and lower bounds:
             loss = sum(self.loss_fn(q.mean(dim=1).unsqueeze(1), ub) for q in softq_curr)
-            # loss = self.loss_fn(lb, ub)
 
             self.optimizers.zero_grad()
             loss.backward()
@@ -183,5 +178,3 @@ class SoftQAgent(BaseAgent):
     def _update_target(self):
         # Do a Polyak update of parameters:
         self.target_softqs.polyak(self.online_softqs, self.tau)
-
-
