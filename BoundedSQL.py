@@ -82,20 +82,6 @@ class SoftQAgent(BaseAgent):
             lb = torch.max(online_lb, target_lb)
             ub = torch.min(online_ub, target_ub)
 
-            if 'naive' in self.clip_method:
-                lb = torch.max(lb, torch.ones_like(lb)*0)
-                ub = torch.min(ub, torch.ones_like(ub)*1/(1-self.gamma))
-
-            # Recast the bounds to be same shape as target_next_softqs:
-            # clipped_next_softqs = torch.clamp(target_next_softqs, min=lb, max=ub)
-
-            # if 'hard' in self.clip_method:
-            #     target_next_softqs = clipped_next_softqs
-
-            # if 'anti' in self.clip_method:
-            #     target_next_softqs = clipped_next_softqs
-                
-                
             # Count number of clips by comparing old and new target:
             num_clips = (old_target != target_next_softqs).sum().item()
             self.total_clips += num_clips
@@ -136,7 +122,7 @@ class SoftQAgent(BaseAgent):
         ub = ub.unsqueeze(0).repeat(self.num_nets, 1, 1)
         
         clipped_curr_softq = torch.clamp(curr_softq, min=lb, max=ub)
-        clipped_curr_softq = clipped_curr_softq.squeeze(2)
+        # clipped_curr_softq = clipped_curr_softq.squeeze(2)
         if 'online' in self.clip_method:
             curr_softq = clipped_curr_softq
      
