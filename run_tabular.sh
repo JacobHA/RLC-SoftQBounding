@@ -1,4 +1,5 @@
-python tabular_soln.py --clip True &
-python tabular_soln.py --clip True & 
-python tabular_soln.py --clip False & 
-python tabular_soln.py --clip False
+python sweep_tabular.py &
+python sweep_tabular.py &
+python sweep_tabular.py &
+python sweep_tabular.py &
+python sweep_tabular.py 

@@ -114,3 +114,27 @@ def sample_wandb_hyperparams(params, int_hparams=None):
         if k in int_hparams:
             sampled[k] = int(sampled[k])
     return sampled
+
+
+def get_bounds(Q, beta, gamma, rewards, mdp_generator, visible_mask=None):
+    nS, nA = Q.shape
+    delta_rwd = np.empty((nS, nA))
+    Qi = Q.flatten()
+    Qj = np.log(mdp_generator.T.dot(np.exp(beta * Qi.T)).T) / beta
+
+    delta_rwd = rewards.flatten() + gamma * Qj - Qi
+    if visible_mask is not None:
+        applicable_deltas = delta_rwd[:, visible_mask]
+    else:
+        applicable_deltas = delta_rwd
+
+    delta_min, delta_max = np.min(applicable_deltas), np.max(applicable_deltas)
+    lb = Qi + delta_rwd + gamma * delta_min /(1-gamma)
+    ub = Qi + delta_rwd + gamma * delta_max /(1-gamma)
+
+    # reshape to original shape:
+    lb = lb.reshape(nS, nA).A
+    ub = ub.reshape(nS, nA).A
+
+    # assert np.allclose(lb <= ub), 'lb > ub'
+    return lb, ub

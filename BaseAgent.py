@@ -239,10 +239,8 @@ class BaseAgent:
 
                 # Add the transition to the replay buffer:
                 action = np.array([action])
-                if isinstance(self.env.observation_space, gym.spaces.Discrete):
-                    # Need to one hot the state and next_state:
-                    state = F.one_hot(torch.tensor(state), self.env.observation_space.n)
-                    next_state = F.one_hot(torch.tensor(next_state), self.env.observation_space.n)
+                state = np.array([state])
+                next_state = np.array([next_state])
                 sarsa = (state, next_state, action, reward, terminated)
                 self.replay_buffer.add(*sarsa, [infos])
                 state = next_state

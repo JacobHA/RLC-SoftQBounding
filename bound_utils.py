@@ -11,8 +11,8 @@ def net_to_delta(beta, gamma, rewards, dones, actions, next_q_values, curr_q_val
     # delta = delta.reshape(-1, 1)
     # delta = delta.gather(1, actions)
 
-    delta_min = th.min(delta[dones.repeat(1,nA) == 0])
-    delta_max = th.max(delta[dones.repeat(1,nA) == 0])
+    delta_min = th.min(delta)#[dones.repeat(1,nA) == 0])
+    delta_max = th.max(delta)#[dones.repeat(1,nA) == 0])
 
     return delta, delta_min, delta_max
 

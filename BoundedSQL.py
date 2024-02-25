@@ -1,3 +1,4 @@
+import gymnasium
 import numpy as np
 import torch
 from BaseAgent import BaseAgent
@@ -11,12 +12,16 @@ class SoftQAgent(BaseAgent):
                  gamma: float = 0.99,
                  clip_method: str = None,
                  pretrain: bool = False,
+                 soft_weight = 0.01,
+                 perceptron_model=False,
                  **kwargs,
                  ):
         super().__init__(*args, **kwargs)
         self.algo_name = 'SQL'
         self.gamma = gamma
         self.clip_method = clip_method
+        self.soft_weight = soft_weight
+        self.perceptron_model = perceptron_model
 
         self.total_clips = 0
         self.pretrain = pretrain
@@ -29,7 +34,8 @@ class SoftQAgent(BaseAgent):
     def _initialize_networks(self):
         self.online_softqs = OnlineSoftQNets([SoftQNet(self.env, 
                                                   hidden_dim=self.hidden_dim, 
-                                                  device=self.device)
+                                                  device=self.device,
+                                                  perceptron=self.perceptron_model)
                                               for _ in range(self.num_nets)],
                                             beta=self.beta,
                                             aggregator_fn=self.aggregator_fn)
@@ -38,7 +44,8 @@ class SoftQAgent(BaseAgent):
 
         self.target_softqs = TargetNets([SoftQNet(self.env, 
                                                   hidden_dim=self.hidden_dim, 
-                                                  device=self.device)
+                                                  device=self.device,
+                                                  perceptron=self.perceptron_model)
                                         for _ in range(self.num_nets)])
         self.target_softqs.load_state_dicts(
             [softq.state_dict() for softq in self.online_softqs])
@@ -59,6 +66,9 @@ class SoftQAgent(BaseAgent):
         # rewards -= (1-self.gamma) * 32
 
         with torch.no_grad():
+            if isinstance(self.env.observation_space, gymnasium.spaces.Discrete):
+                states = states.squeeze()
+                next_states = next_states.squeeze()
             online_softq_next = torch.stack([softq(next_states)
                                             for softq in self.online_softqs], dim=0)
             online_curr_softq = torch.stack([softq(states).gather(1, actions)
@@ -81,7 +91,6 @@ class SoftQAgent(BaseAgent):
 
             # Take best bounds:
             lb = torch.max(online_lb, target_lb)
-            ub = torch.min(online_ub, target_ub)
 
             # Count number of clips by comparing old and new target:
             num_clips = (old_target != target_next_softqs).sum().item()
@@ -94,6 +103,7 @@ class SoftQAgent(BaseAgent):
             # Log these values:
             self.logger.record("train/target_clipped", num_clips)
             self.logger.record("train/avg_violation", avg_violation)
+            ub = torch.min(online_ub, target_ub)
 
             # Log the average upper bound, lower bound, and target:
             for name, vals in zip(['lb', 'ub', 'target_q'],
@@ -110,11 +120,14 @@ class SoftQAgent(BaseAgent):
             # next_v = 32 + next_v ---> "deviation"/perturbation
 
             # "Backup" eigenvector equation:
-            expected_curr_softq = rewards + self.gamma * next_v * (1-dones)
+            expected_curr_softq = rewards + self.gamma * next_v * (1-dones)# + self.gamma * rewards * dones / (1-self.gamma)
             expected_curr_softq = expected_curr_softq.squeeze(1)
+
+            clamped_soft_q = torch.clamp(expected_curr_softq, min=lb.squeeze(), max=ub.squeeze())
+
             # clip the expected curr soft q:
             if 'hard' in self.clip_method:
-                expected_curr_softq = torch.clamp(expected_curr_softq, min=lb.squeeze(), max=ub.squeeze())
+                expected_curr_softq = clamped_soft_q
 
         curr_softq = torch.stack([softq(states).squeeze().gather(1, actions.long())
                         for softq in self.online_softqs], dim=0)
@@ -140,10 +153,11 @@ class SoftQAgent(BaseAgent):
                        for softq in curr_softq)
         if 'soft' in self.clip_method:
             # add the magnitude of bound violations to the loss:
-            clip_loss = ((clipped_curr_softq - curr_softq)**2).sum()
+            #TODO: Change this to MSE and add weight on this line for better logging
+            clip_loss = (clipped_curr_softq.squeeze(2) - curr_softq).abs().mean()
             # log the clip loss:
             self.logger.record("train/clip_loss", clip_loss.detach().item())
-            loss += 0.05 * clip_loss
+            loss += self.soft_weight * clip_loss
         # log the loss:
         self.logger.record("train/loss", loss.item())
         return loss
