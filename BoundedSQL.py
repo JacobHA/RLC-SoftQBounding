@@ -149,6 +149,7 @@ class SoftQAgent(BaseAgent):
                        for softq in curr_softq)
         if 'soft' in self.clip_method:
             # add the magnitude of bound violations to the loss:
+            #TODO: Change this to MSE and add weight on this line for better logging
             clip_loss = (clipped_curr_softq.squeeze(2) - curr_softq).abs().mean()
             # log the clip loss:
             self.logger.record("train/clip_loss", clip_loss.detach().item())
