@@ -11,7 +11,8 @@ import matplotlib.pyplot as plt
 class SoftQLearning():
     def __init__(self, env, beta, gamma, learning_rate_schedule, 
                  init_Q=None, prior_policy=None, plot=False, 
-                 save_data=False, clip=False):
+                 save_data=False, clip=False, lb=None, ub=None,
+                 prefix='', keep_bounds_fixed=False):
         self.env = env
         self.nS = env.observation_space.n
         self.nA = env.action_space.n
@@ -22,7 +23,7 @@ class SoftQLearning():
         self.clip = clip
         self.save_data = save_data
         if save_data:
-            prefix = 'clip-'*bool(clip)+str(gamma)
+            prefix = prefix+'clip-'*bool(clip)+str(gamma)
             # count how many files are in data folder:
             if not os.path.exists(f'{prefix}data'):
                 os.makedirs(f'{prefix}data')
@@ -34,9 +35,7 @@ class SoftQLearning():
                 num += 1
                 path = f'{prefix}data/softq_{num}.npy'
             print(f'Saving data to {path}')
-            # # Save a blank file in this location for now:
             self.path = path
-            # np.save(path, [])
 
         if init_Q is not None:
             assert init_Q.shape == (self.nS, self.nA), f'init_Q.shape: {init_Q.shape}, expected shape: {(self.nS, self.nA)}'
@@ -53,7 +52,7 @@ class SoftQLearning():
 
 
         self.plot = plot
-
+        self.keep_bounds_fixed = keep_bounds_fixed
         # get rewards and dynamics:
 
         self.visible_mask, _ = visible_states_mask(self.env.desc)
@@ -61,9 +60,10 @@ class SoftQLearning():
         self.mdp_generator = get_mdp_generator(self.env, self.dynamics, self.prior_policy)
 
         self.rewards = self.rewards.reshape(self.nS, self.nA)
-        self.lb = np.ones((self.nS, self.nA)) * -np.inf
-        self.ub = np.ones((self.nS, self.nA)) * np.inf
-        self.lb, self.ub = self.get_bounds()
+        self.lb = np.ones((self.nS, self.nA)) * -np.inf if lb is None else lb
+        self.ub = np.ones((self.nS, self.nA)) * np.inf if ub is None else ub
+        if not keep_bounds_fixed:
+            self.lb, self.ub = self.get_bounds()
         self.total_clips = 0
         self.Q_over_time = []
         self.q_stds = []
@@ -143,7 +143,6 @@ class SoftQLearning():
             lr = self.learning_rate_schedule(steps)
             delta = self.learn(state, action, reward, next_state, terminated, lr)
             state = next_state
-            total_reward += reward
             steps += 1
             if render:
                 self.env.render()
@@ -151,12 +150,15 @@ class SoftQLearning():
                 state, _ = self.env.reset()
                 done = False
                 # update bounds:
-                self.lb, self.ub = self.get_bounds()
+                if not self.keep_bounds_fixed:
+                    self.lb, self.ub = self.get_bounds()
 
             if steps % eval_freq == 0:
-                self.lb, self.ub = self.get_bounds()
+                if not self.keep_bounds_fixed:
+                    self.lb, self.ub = self.get_bounds()
 
-                eval_rwd = self.evaluate(10, render=False, greedy=greedy_eval)
+                eval_rwd = self.evaluate(1, render=False, greedy=greedy_eval)
+                total_reward += eval_rwd
                 print(f'steps={steps}, eval_rwd={eval_rwd:.2f}, lb={self.lb.mean():.2f}, ub={self.ub.mean():.2f}, lr={lr:.6f}')
                 if self.plot:
                     self.live_plot(eval_rwd, steps, error=np.abs(delta))
@@ -322,24 +324,50 @@ def plot_3d(desc, Q, lb, ub):
     plt.close('all')
 
 
-def main(env_str, clip, gamma):
+def main(env_str, clip, gamma, oracle, naive, save=True, lr=None):
     # 11x11dzigzag
     env = ModifiedFrozenLake(map_name=env_str,cyclic_mode=False,slippery=0)
     env = TimeLimit(env, max_episode_steps=1000)
     # env = gymnasium.make('FrozenLake-v1', is_slippery=False)
     beta = 5
     gamma = 0.98
-    # learning_rate = 1.0
-    # learning_rate = 0.002
+    lb, ub = None, None
+    dynamics, rewards = get_dynamics_and_rewards(env)
+    nS, nA = env.observation_space.n, env.action_space.n
+    if oracle:
+        # solve the MDP exactly:
+        from tabular import softq_solver
+        Q, _, _ = softq_solver(env, beta=beta, gamma=gamma, tolerance=1e-14)
+        # calculate bounds
+        from utils import get_bounds
+        generator = get_mdp_generator(env, dynamics, np.ones((nS, nA)) / nA)
+        lb, ub = get_bounds(Q, beta, gamma, rewards, generator)
+
+    if naive:
+        # Get naive bounds rmin and rmax over 1-gamma:
+        lb = np.min(rewards) / (1 - gamma) * np.ones((nS, nA))
+        ub = np.max(rewards) / (1 - gamma) * np.ones((nS, nA))
+    
     def learning_rate_schedule(t):
-        # Exponential decay:
-        return 0.5
-        # return max(learning_rate * (0.9 ** (t//10000)), 1e-6)
+        if lr is None:
+            if clip:
+                if naive:
+                    return 0.65
+                else:
+                    return 0.15
+            else:
+                return 0.7
+        else:
+            return lr
+
     sarsa = SoftQLearning(env, beta, gamma, learning_rate_schedule,
-                           plot=0, save_data=1, clip=clip)
+                           plot=0, save_data=save, clip=clip, lb=lb, ub=ub,
+                           prefix='oracle'*oracle+'naive'*naive,
+                           keep_bounds_fixed=naive)
     max_steps = 50_000
 
-    total_reward = sarsa.train(max_steps, render=False, greedy_eval=False, eval_freq=100)
+    total_reward = sarsa.train(max_steps, render=False, greedy_eval=True, eval_freq=100)
+    return total_reward
 
 
 if __name__ == '__main__':
@@ -348,6 +376,10 @@ if __name__ == '__main__':
     parser.add_argument('--env', type=str, default='7x7zigzag')
     parser.add_argument('--clip', type=bool, default=False)
     parser.add_argument('--gamma', type=float, default=0.98)
+    parser.add_argument('--oracle', type=bool, default=False)
+    parser.add_argument('--naive', type=bool, default=False)
+    parser.add_argument('-n', type=int, default=1)
     args = parser.parse_args()
 
-    main(env_str=args.env, clip=args.clip, gamma=args.gamma)
+    for _ in range(args.n):
+        main(env_str=args.env, clip=args.clip, gamma=args.gamma, oracle=args.oracle, naive=args.naive)
