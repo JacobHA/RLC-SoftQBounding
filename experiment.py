@@ -120,7 +120,7 @@ def main(config=None):
         }
         wandb.log({'clip_method': clip_method, 'env_id': env_str})#, 'pretrain': pretrain})
         agent = SoftQAgent(env, **default_params, **config,
-                            device='cuda', log_interval=100,
+                            device='cpu', log_interval=100,
                             tensorboard_log='pong', num_nets=1, 
                             render=False, 
                             clip_method=clip_method)
