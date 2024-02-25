@@ -1,3 +1,4 @@
+import gymnasium
 from BoundedSQL import SoftQAgent
 import wandb
 
@@ -82,11 +83,12 @@ def main(config=None):
     # env_id = 'Taxi-v3'
     # env_id = 'CliffWalking-v0'
     # env_id = 'Acrobot-v1'
-    # env_id = 'LunarLander-v2'
+    env_id = 'LunarLander-v2'
     # env_id = 'ALE/Pong-v5'
     # env_id = 'FrozenLake-v1'
     # env_id = 'MountainCar-v0'
     # env_id = 'Drug-v0'
+    env = gymnasium.make(env_id)
     
     id_to_params = {
         'FrozenLake-v1': sql_froz,
@@ -112,27 +114,27 @@ def main(config=None):
             'beta': 5,
             'gamma': 0.98,
             'learning_starts': 0,#1000,
-            # 'learning_rate': 0.1,
-            'perceptron_model': True,
-            # 'target_update_interval': 1,
-            # 'batch_size': 1024,
-            # 'soft_weight': 1e-3
+            # 'learning_rate': 0.12,
+            # 'perceptron_model': True,
+            # 'target_update_interval': 10,
+            # 'batch_size': 512,
+            # 'soft_weight': 0.0000058,
         }
         wandb.log({'clip_method': clip_method, 'env_id': env_str})#, 'pretrain': pretrain})
         agent = SoftQAgent(env, **default_params, **config,
-                            device='cpu', log_interval=100,
+                            device='cpu', log_interval=1000,
                             tensorboard_log='pong', num_nets=1, 
                             render=False, 
                             clip_method=clip_method)
         
         # Measure the time it takes to learn:
-        agent.learn(total_timesteps=10_000)
+        agent.learn(total_timesteps=300_000)
         wandb.finish()
 
 
 if __name__ == '__main__':
     # for _ in range(5):
-    # main()
+    #     main()
     full_sweep_id='jacobhadamczyk/clipping/jq7ib9su'
     wandb.agent(full_sweep_id, function=main, count=500)
     # main()
