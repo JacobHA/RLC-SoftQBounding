@@ -63,6 +63,7 @@ class SoftQAgent(BaseAgent):
 
     def gradient_descent(self, batch, grad_step: int):
         states, actions, next_states, dones, rewards = batch
+        # rewards -= (1-self.gamma) * 32
 
         with torch.no_grad():
             if isinstance(self.env.observation_space, gymnasium.spaces.Discrete):
@@ -116,6 +117,7 @@ class SoftQAgent(BaseAgent):
                 self.beta * target_next_softq, dim=-1) - torch.log(torch.Tensor([self.nA])).to(self.device))
 
             next_v = next_v.reshape(-1, 1)
+            # next_v = 32 + next_v ---> "deviation"/perturbation
 
             # "Backup" eigenvector equation:
             expected_curr_softq = rewards + self.gamma * next_v * (1-dones)# + self.gamma * rewards * dones / (1-self.gamma)
@@ -143,6 +145,8 @@ class SoftQAgent(BaseAgent):
         curr_softq = curr_softq.squeeze(2)
 
         # log the mean online q :
+
+        # 32 * perturbation
         self.logger.record("train/online_q_mean", curr_softq.mean().item())
         # Calculate the softq ("critic") loss:
         loss = 0.5*sum(self.loss_fn(softq, expected_curr_softq)

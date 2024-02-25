@@ -199,7 +199,7 @@ class SoftQNet(torch.nn.Module):
         model.to(self.device)
         self.model = model
     
-    def forward(self, x, eval=False):
+    def forward(self, x, eval=False, scale_factor = 1):
         if not isinstance(x, torch.Tensor):
             x = torch.tensor(x, device=self.device)  # Convert to PyTorch tensor
         
@@ -210,3 +210,4 @@ class SoftQNet(torch.nn.Module):
 
         x = self.model(x)
         return x
+        # return scale_factor * (1 + x)
