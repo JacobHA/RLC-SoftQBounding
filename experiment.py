@@ -4,6 +4,19 @@ import wandb
 from tabular import ModifiedFrozenLake
 from gymnasium.wrappers import TimeLimit
 
+sql_froz = {
+    'batch_size': 32,
+    'beta': 5,
+    'gamma': 0.98,
+    'hidden_dim': 64,
+    'learning_rate': 0.0023,
+    'learning_starts': 1000,#0.02*50_000,
+    'target_update_interval': 100,
+    'tau': 1,
+    'train_freq': 1,
+    'gradient_steps': 1,
+}
+
 sql_cpole = {
     'batch_size': 64,
     'beta': 1,
@@ -58,12 +71,14 @@ sql_acro = {
 
 
 
-def main():
-    map_name = '4x4'
-    env_id = ModifiedFrozenLake(map_name=map_name)
-    env_id = TimeLimit(env_id, max_episode_steps=100)
+def main(config=None):
+    map_name = '7x7zigzag'
+    env_id='FrozenLake-v1'
+    env = ModifiedFrozenLake(map_name=map_name,cyclic_mode=False,slippery=0)
+    env = TimeLimit(env, max_episode_steps=1000)
+    # env_id = TimeLimit(env_id, max_episode_steps=100)
 
-    env_id = 'CartPole-v1'
+    # env_id = 'CartPole-v1'
     # env_id = 'Taxi-v3'
     # env_id = 'CliffWalking-v0'
     # env_id = 'Acrobot-v1'
@@ -74,6 +89,7 @@ def main():
     # env_id = 'Drug-v0'
     
     id_to_params = {
+        'FrozenLake-v1': sql_froz,
         'CartPole-v1': sql_cpole,
         'Acrobot-v1': sql_acro,
         'LunarLander-v2': sql_lunar,
@@ -84,19 +100,39 @@ def main():
     else:
         env_str = env_id
 
-    wandb.init(project='clipping', entity='jacobhadamczyk', sync_tensorboard=True)
-    clip_method = 'soft'
-    pretrain = False
-    wandb.log({'clip_method': clip_method, 'env_id': env_str, 'pretrain': pretrain})
-    agent = SoftQAgent(env_id, **id_to_params[env_id], device='cpu', log_interval=500,
-                 tensorboard_log='pong', num_nets=2, render=False, aggregator='max',
-                 scheduler_str='none', clip_method=clip_method, pretrain=pretrain)
     
-    # Measure the time it takes to learn:
-    agent.learn(total_timesteps=300_000)
-    wandb.finish()
+    with wandb.init(project='clipping', entity='jacobhadamczyk', sync_tensorboard=True) as run:
+        cfg = run.config
+        config = cfg.as_dict()
+
+        clip_method = 'soft'
+
+        # config = id_to_params[env_id]
+        default_params = {
+            'beta': 5,
+            'gamma': 0.98,
+            'learning_starts': 0,#1000,
+            # 'learning_rate': 0.1,
+            'perceptron_model': True,
+            # 'target_update_interval': 1,
+            # 'batch_size': 1024,
+            # 'soft_weight': 1e-3
+        }
+        wandb.log({'clip_method': clip_method, 'env_id': env_str})#, 'pretrain': pretrain})
+        agent = SoftQAgent(env, **default_params, **config,
+                            device='cuda', log_interval=100,
+                            tensorboard_log='pong', num_nets=1, 
+                            render=False, 
+                            clip_method=clip_method)
+        
+        # Measure the time it takes to learn:
+        agent.learn(total_timesteps=10_000)
+        wandb.finish()
 
 
 if __name__ == '__main__':
-    for _ in range(5):
-        main()
+    # for _ in range(5):
+    # main()
+    full_sweep_id='jacobhadamczyk/clipping/jq7ib9su'
+    wandb.agent(full_sweep_id, function=main, count=500)
+    # main()
