@@ -149,7 +149,7 @@ class OnlineSoftQNets(OnlineNets):
         if prior is None:
             prior = 1 / self.nA
         with torch.no_grad():
-            q_as = torch.stack([net.forward(state) for net in self], dim=-1)
+            q_as = torch.stack([net.forward(state, eval=True) for net in self], dim=-1)
             # q_as = q_as.squeeze(0)
             q_a = self.aggregator_fn(q_as, dim=-1)
 
@@ -169,14 +169,14 @@ class OnlineSoftQNets(OnlineNets):
 
     
 class SoftQNet(torch.nn.Module):
-    def __init__(self, env, device='cuda', hidden_dim=256, activation=nn.ReLU):
+    def __init__(self, env, device='cuda', hidden_dim=256, activation=nn.ReLU, perceptron=False):
         super(SoftQNet, self).__init__()
         self.env = env
         self.nA = env.action_space.n
         self.is_tabular = is_tabular(env)
         self.device = device
         # Start with an empty model:
-        model = nn.Sequential()
+        model = None
 
         self.nS = env.observation_space.shape
         if self.is_tabular:
@@ -185,44 +185,28 @@ class SoftQNet(torch.nn.Module):
         else:
             nS = self.nS[0]
         input_dim = nS
-        model.extend(nn.Sequential(
-            nn.Linear(input_dim, hidden_dim),
-            activation(),
-            nn.Linear(hidden_dim, hidden_dim),
-            activation(),
-            nn.Linear(hidden_dim, self.nA),    
-        ))
+        if perceptron:
+            model = nn.Linear(input_dim, self.nA)
+        else:   
+            model = nn.Sequential(
+                nn.Linear(input_dim, hidden_dim),
+                activation(),
+                nn.Linear(hidden_dim, hidden_dim),
+                activation(),
+                nn.Linear(hidden_dim, self.nA),    
+            )
 
         model.to(self.device)
         self.model = model
     
-    def forward(self, x):
+    def forward(self, x, eval=False):
         if not isinstance(x, torch.Tensor):
             x = torch.tensor(x, device=self.device)  # Convert to PyTorch tensor
         
-        # x = x.detach()
         x = preprocess_obs(x, self.env.observation_space)
+        if eval:
+            x = x.unsqueeze(0)
         assert x.dtype == torch.float32, "Input must be a float tensor."
-
-        # if self.is_tabular:
-        #     # Single state
-        #     if x.shape[0] == self.nS:
-        #         x = x.unsqueeze(0)
-        #     else: 
-        #         x = x.squeeze()
-        #         pass
-        if True:
-            if len(x.shape) > len(self.nS):
-                # in batch mode:
-                pass
-            else:
-                # is a single state
-                if isinstance(x.shape, torch.Size):
-                    if x.shape == self.nS:
-                        x = x.unsqueeze(0)
-                else:
-                    if (x.shape == self.nS).all():
-                        x = x.unsqueeze(0)
 
         x = self.model(x)
         return x
