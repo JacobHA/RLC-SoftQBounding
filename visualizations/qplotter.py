@@ -1,13 +1,14 @@
 # Plot the data in the data folder, which contains Q, lb, ub, rewards, loss
 import os
+import sys
+sys.path.append('../QBounding')
 import numpy as np
 import matplotlib.pyplot as plt
 import pandas as pd
-import seaborn as sns
 from gymnasium.wrappers import TimeLimit
 from tabular import ModifiedFrozenLake, softq_solver
+from visualizations.visualization import plot_dist
 
-from visualization import plot_dist
 name_to_color = {
     'q': 'k',
     'lb': 'b',
@@ -16,7 +17,7 @@ name_to_color = {
     'loss': 'r'
 }
 
-FONTSIZE=18
+FONTSIZE = 18
 
 SKIP_POINTS = 50
 
@@ -31,7 +32,7 @@ gamma = 0.98
 Q, V, pi = softq_solver(env, beta=beta, gamma=gamma, tolerance=1e-14)
 # reshape V to be plottable:
 V_re = V.flatten()#V.reshape(env.desc.shape)
-plot_dist(env.desc, V_re, show_plot=False, filename='Vs.png', dpi=300)#, fontsize=FONTSIZE)
+plot_dist(env.desc, V_re, show_plot=False, filename='visualizations/Vs.png', dpi=300)#, fontsize=FONTSIZE)
 
 
 def load_data(folder):
@@ -136,6 +137,6 @@ plt.rcParams.update({'figure.figsize': (60,60)})
 
 
 plt.tight_layout()
-plt.savefig(f'Q_values.png', bbox_inches='tight', dpi=600)
+plt.savefig(f'visualizations/Q_values.png', bbox_inches='tight', dpi=600)
 plt.close()
 

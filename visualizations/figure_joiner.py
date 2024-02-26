@@ -2,14 +2,14 @@ import matplotlib.pyplot as plt
 
 # first run the comparison_plotter.py and qplotter.py to generate the images:
 import os
-os.system('python comparison_plotter.py')
-os.system('python qplotter.py')
+os.system('python visualizations/comparison_plotter.py')
+os.system('python visualizations/qplotter.py')
 
 # Join the rewards_comparison.png and Q_values.png into a single figure
 # and save it as rewards_and_Q_values.png
 
-rewards = plt.imread('rewards_comparison.png')
-Q_values = plt.imread('Q_values.png')
+rewards = plt.imread('visualizations/rewards_comparison.png')
+Q_values = plt.imread('visualizations/Q_values.png')
 
 fig, ax = plt.subplots(1, 2, figsize=(27, 9), gridspec_kw={'width_ratios': [1, 1.18]})
 
@@ -30,4 +30,4 @@ plt.tight_layout(pad=0)
 # stretch out horizontally with aspect:
 # plt.subplots_adjust(wspace=0.1)
 
-plt.savefig('rewards_and_Q_values.png', bbox_inches='tight', dpi=400)
+plt.savefig('visualizations/rewards_and_Q_values.png', bbox_inches='tight', dpi=400)

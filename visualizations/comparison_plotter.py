@@ -1,4 +1,6 @@
 import os
+import sys
+sys.path.append('../QBounding')
 from matplotlib.backend_bases import FigureCanvasBase
 import numpy as np
 import matplotlib.pyplot as plt
@@ -31,7 +33,7 @@ beta = 5
 gamma = 0.98
 from tabular import ModifiedFrozenLake, softq_solver
 Q, V, pi = softq_solver(env, beta=beta, gamma=gamma, tolerance=1e-14)
-plot_dist(env.desc, pi, show_plot=False, filename='policy.png', dpi=600)#, fontsize=FONTSIZE)
+plot_dist(env.desc, pi, show_plot=False, filename='visualizations/policy.png', dpi=600)#, fontsize=FONTSIZE)
 
 def load_data(data_folder):
     files = os.listdir(data_folder)
@@ -123,7 +125,7 @@ plt.tight_layout()
 inset = fig.add_axes([0.557, 0.4, 0.4, 0.4])
 
 # Load the saved image
-inset_image_path = 'policy.png'
+inset_image_path = 'visualizations/policy.png'
 inset_image = mpimg.imread(inset_image_path, format='png')
 
 # Display the image in the inset with high resolution:
@@ -131,4 +133,4 @@ inset.imshow(inset_image)#, interpolation='none')
 inset.axis('off')  
 
 # Save the total figure
-fig.savefig('rewards_comparison.png', bbox_inches='tight', dpi=600)
+fig.savefig('visualizations/rewards_comparison.png', bbox_inches='tight', dpi=600)

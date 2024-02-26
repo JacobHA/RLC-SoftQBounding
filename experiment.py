@@ -107,7 +107,7 @@ def main(config=None):
         cfg = run.config
         config = cfg.as_dict()
 
-        clip_method = 'none'
+        clip_method = 'soft'
 
         config = id_to_params[env_id]
         # default_params = {

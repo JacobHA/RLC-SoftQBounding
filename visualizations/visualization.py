@@ -210,39 +210,6 @@ def add_layout(desc, out):
     return out
 
 
-def save_u_plot(env, logu, u_true, prior_policy=None, name=''):
-    if prior_policy is None:
-        prior_policy = np.ones((env.nS, env.nA)) / env.nA
-
-    u_true = u_true.A
-    u_true = u_true.reshape(env.nS, env.nA)
-    optimal_policy = u_true * prior_policy
-    optimal_policy = optimal_policy / optimal_policy.sum(axis=1, keepdims=True)
-    plt.figure()
-    plt.title("Learned vs. True Left Eigenvector")
-    plt.plot(u_true.flatten(), label='True')
-    u_est = np.exp(logu).flatten()
-    # rescale
-    u_est = u_est * (u_true.max() / u_est.max())
-    plt.plot(u_est, label='Learned')
-    plt.legend()
-    plt.savefig(f'figures/left_eigenvector_{name}.png')
-    plt.close()
-
-    return optimal_policy
-
-
-def save_thetas(thetas, l_true, name: str = ''):
-    plt.figure()
-    plt.title('Learned vs. True Eigenvalue')
-    plt.plot(thetas, label='Learned')
-    max_it = len(thetas)
-    plt.hlines(-np.log(l_true), 0, max_it, linestyles='dashed', label='True')
-    plt.legend()
-    plt.savefig(f'figures/eigenvalue_{name}.png')
-    plt.close()
-
-
 def save_err_plot(err, name=''):
     plt.figure()
     plt.title("Policy Error")
@@ -256,13 +223,3 @@ def save_policy_plot(desc, learned_policy, optimal_policy, name=''):
               titles=["Learned policy", "True policy"],
               filename=f'figures/policy_{name}.png')
 
-
-def save_plots(agent, results, u_true, l_true, name: str = ''):
-
-    save_err_plot(results['kl'], name=name)
-
-    optimal_policy = save_u_plot(
-        agent.env, agent.logu, u_true, prior_policy=agent.prior_policy, name=name)
-
-    save_thetas(results['theta'], l_true, name=name)
-    save_policy_plot(agent.env.desc, agent.policy, optimal_policy, name=name)
