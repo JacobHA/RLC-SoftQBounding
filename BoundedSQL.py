@@ -88,9 +88,12 @@ class SoftQAgent(BaseAgent):
             online_curr_softqs = torch.stack([softq(states)
                                             for softq in self.online_softqs], dim=0)
             online_lb, online_ub = bounds(self.beta, self.gamma, rewards, dones, actions, online_softq_next, online_curr_softqs)
+            ub = torch.min(online_ub, target_ub)
+            # ub = target_ub
 
             # Take best bounds:
             lb = torch.max(online_lb, target_lb)
+            # lb = target_lb
 
             # Count number of clips by comparing old and new target:
             num_clips = (old_target != target_next_softqs).sum().item()
@@ -103,7 +106,6 @@ class SoftQAgent(BaseAgent):
             # Log these values:
             self.logger.record("train/target_clipped", num_clips)
             self.logger.record("train/avg_violation", avg_violation)
-            ub = torch.min(online_ub, target_ub)
 
             # Log the average upper bound, lower bound, and target:
             for name, vals in zip(['lb', 'ub', 'target_q'],
@@ -120,7 +122,7 @@ class SoftQAgent(BaseAgent):
             # next_v = 32 + next_v ---> "deviation"/perturbation
 
             # "Backup" eigenvector equation:
-            expected_curr_softq = rewards + self.gamma * next_v * (1-dones)# + self.gamma * rewards * dones / (1-self.gamma)
+            expected_curr_softq = rewards + self.gamma * next_v * (1-dones)
             expected_curr_softq = expected_curr_softq.squeeze(1)
 
             clamped_soft_q = torch.clamp(expected_curr_softq, min=lb.squeeze(), max=ub.squeeze())
@@ -136,7 +138,7 @@ class SoftQAgent(BaseAgent):
         lb = lb.unsqueeze(0).repeat(self.num_nets, 1, 1)
         ub = ub.unsqueeze(0).repeat(self.num_nets, 1, 1)
         
-        clipped_curr_softq = torch.clamp(curr_softq, min=lb, max=ub)
+        clipped_curr_softq = torch.clamp(curr_softq, max=ub, min=lb)
         # clipped_curr_softq = clipped_curr_softq.squeeze(2)
         if 'online' in self.clip_method:
             curr_softq = clipped_curr_softq
@@ -154,7 +156,10 @@ class SoftQAgent(BaseAgent):
         if 'soft' in self.clip_method:
             # add the magnitude of bound violations to the loss:
             #TODO: Change this to MSE and add weight on this line for better logging
-            clip_loss = (clipped_curr_softq.squeeze(2) - curr_softq).abs().mean()
+            # clip_loss = (clipped_curr_softq.squeeze(2) - curr_softq).abs().mean()
+            clip_loss = torch.nn.functional.huber_loss(clipped_curr_softq.squeeze(2), 
+                                                        curr_softq, 
+                                                        reduction='mean')
             # log the clip loss:
             self.logger.record("train/clip_loss", clip_loss.detach().item())
             loss += self.soft_weight * clip_loss
