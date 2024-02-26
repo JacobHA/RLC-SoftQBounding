@@ -1,3 +1,4 @@
+import gymnasium
 from BoundedSQL import SoftQAgent
 import wandb
 
@@ -87,6 +88,7 @@ def main(config=None):
     # env_id = 'FrozenLake-v1'
     # env_id = 'MountainCar-v0'
     # env_id = 'Drug-v0'
+    env = gymnasium.make(env_id)
     
     id_to_params = {
         'FrozenLake-v1': sql_froz,
@@ -122,8 +124,8 @@ def main(config=None):
             'soft_weight': 2,
         }
         wandb.log({'clip_method': clip_method, 'env_id': env_str})#, 'pretrain': pretrain})
-        agent = SoftQAgent(env_id, **default_params, **config,
-                            device='cuda', log_interval=1000,
+        agent = SoftQAgent(env, **default_params, **config,
+                            device='cpu', log_interval=1000,
                             tensorboard_log='pong', num_nets=1, 
                             render=False, 
                             clip_method=clip_method)
