@@ -52,36 +52,6 @@ def get_dynamics_and_rewards(env):
 
     return dynamics, rewards
 
-
-def find_exploration_policy(dynamics, rewards, n_states, n_actions, beta=1, alpha=0.01, prior_policy=None, debug=False, max_it=20):
-
-    rewards[:] = 0
-    prior_policy = np.matrix(np.ones((n_states, n_actions))) / \
-        n_actions if prior_policy is None else prior_policy
-    if debug:
-        entropy_list = []
-
-    for i in range(1, 1 + max_it):
-        u, v, optimal_policy, _, estimated_distribution, _ = solve_biased_unconstrained(
-            beta, dynamics, rewards, prior_policy, bias_max_it=20)
-
-        sa_dist = np.multiply(u, v.T)
-        mask = sa_dist > 0
-        r = rewards.copy()
-        r[:] = 0.
-        r[mask] = - np.log(sa_dist[mask].tolist()[0]) / beta
-        r = r - r.max()
-        rewards = (1 - alpha) * rewards + alpha * r
-
-        if debug:
-            x = sa_dist[sa_dist > 0]
-            entropy = - np.multiply(x, np.log(x)).sum()
-            entropy_list.append(entropy)
-
-            # print(f"{i=}\t{alpha=:.3f}\t{entropy=: 10.4f}\t", end='')
-
-    return optimal_policy
-
 def visible_states_mask(desc, nact=4):
     env = ModifiedFrozenLake(desc, n_action=nact)
     dynamics, _ = get_dynamics_and_rewards(env)
@@ -99,7 +69,6 @@ def visible_states_mask(desc, nact=4):
         [i for i in range(dynamics.shape[0]) if i not in invis])
 
     return vis, invis
-
 
 def get_mdp_transition_matrix(transition_dynamics, policy):
 

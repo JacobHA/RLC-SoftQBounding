@@ -364,7 +364,7 @@ def main(env_str, clip, gamma, oracle, naive, save=True, lr=None):
                            plot=0, save_data=save, clip=clip, lb=lb, ub=ub,
                            prefix='oracle'*oracle+'naive'*naive,
                            keep_bounds_fixed=naive)
-    max_steps = 50_000
+    max_steps = 100_000
 
     total_reward = sarsa.train(max_steps, render=False, greedy_eval=True, eval_freq=100)
     return total_reward
