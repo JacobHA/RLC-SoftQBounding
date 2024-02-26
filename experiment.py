@@ -23,7 +23,7 @@ sql_cpole = {
     'gamma': 0.98,
     'hidden_dim': 64,
     'learning_rate': 0.01,
-    'learning_starts': 1000,#0.02*50_000,
+    'learning_starts': 100,#0.02*50_000,
     'target_update_interval': 100,
     'tau': 0.95,
     'train_freq': 9,
@@ -78,11 +78,11 @@ def main(config=None):
     env = TimeLimit(env, max_episode_steps=1000)
     # env_id = TimeLimit(env_id, max_episode_steps=100)
 
-    # env_id = 'CartPole-v1'
+    env_id = 'CartPole-v1'
     # env_id = 'Taxi-v3'
     # env_id = 'CliffWalking-v0'
-    # env_id = 'Acrobot-v1'
-    env_id = 'LunarLander-v2'
+    env_id = 'Acrobot-v1'
+    # env_id = 'LunarLander-v2'
     # env_id = 'ALE/Pong-v5'
     # env_id = 'FrozenLake-v1'
     # env_id = 'MountainCar-v0'
@@ -105,18 +105,21 @@ def main(config=None):
         cfg = run.config
         config = cfg.as_dict()
 
-        clip_method = 'soft'
+        clip_method = 'none'
 
-        # config = id_to_params[env_id]
+        config = id_to_params[env_id]
+        # default_params = {
+        #     'beta': 0.1,
+        #     'gamma': 0.98,
+        #     'learning_starts': 100,
+        #     'learning_rate': 0.05,
+        #     # 'perceptron_model': True,
+        #     'target_update_interval': 50,
+        #     'batch_size': 128,
+        #     'soft_weight': 12,
+        # }
         default_params = {
-            'beta': 5,
-            'gamma': 0.98,
-            'learning_starts': 0,#1000,
-            # 'learning_rate': 0.12,
-            # 'perceptron_model': True,
-            # 'target_update_interval': 10,
-            # 'batch_size': 512,
-            # 'soft_weight': 0.0000058,
+            'soft_weight': 2,
         }
         wandb.log({'clip_method': clip_method, 'env_id': env_str})#, 'pretrain': pretrain})
         agent = SoftQAgent(env_id, **default_params, **config,
@@ -126,13 +129,13 @@ def main(config=None):
                             clip_method=clip_method)
         
         # Measure the time it takes to learn:
-        agent.learn(total_timesteps=300_000)
+        agent.learn(total_timesteps=30_000)
         wandb.finish()
 
 
 if __name__ == '__main__':
-    # for _ in range(5):
-    #     main()
-    full_sweep_id='jacobhadamczyk/clipping/jq7ib9su'
-    wandb.agent(full_sweep_id, function=main, count=500)
+    for _ in range(5):
+        main()
+    # full_sweep_id='jacobhadamczyk/clipping/jq7ib9su'
+    # wandb.agent(full_sweep_id, function=main, count=500)
     # main()
