@@ -354,7 +354,7 @@ def main(env_str, clip, gamma, oracle, naive, save=True, lr=None):
                 if naive:
                     return 0.65
                 else:
-                    return 0.15
+                    return 0#0.15
             else:
                 return 0.7
         else:
@@ -362,7 +362,7 @@ def main(env_str, clip, gamma, oracle, naive, save=True, lr=None):
 
     sarsa = SoftQLearning(env, beta, gamma, learning_rate_schedule,
                            plot=0, save_data=save, clip=clip, lb=lb, ub=ub,
-                           prefix='oracle'*oracle+'naive'*naive,
+                           prefix='oracle'*oracle+'naive'*naive+f'lr{learning_rate_schedule(0):.2f}',
                            keep_bounds_fixed=naive)
     max_steps = 100_000
 
