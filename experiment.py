@@ -107,9 +107,12 @@ def main(config=None):
         cfg = run.config
         config = cfg.as_dict()
 
-        clip_method = 'soft'
+        clip_method = 'soft-fixed'
 
-        config = id_to_params[env_id]
+        default_params = id_to_params[env_id]
+        default_params.pop('learning_rate')
+        default_params.pop('batch_size')
+        # def
         # default_params = {
         #     'beta': 0.1,
         #     'gamma': 0.98,
@@ -120,9 +123,9 @@ def main(config=None):
         #     'batch_size': 128,
         #     'soft_weight': 12,
         # }
-        default_params = {
-            'soft_weight': 2,
-        }
+        # default_params = {
+        #     'soft_weight': 2,
+        # }
         wandb.log({'clip_method': clip_method, 'env_id': env_str})#, 'pretrain': pretrain})
         agent = SoftQAgent(env, **default_params, **config,
                             device='cpu', log_interval=1000,
@@ -136,8 +139,8 @@ def main(config=None):
 
 
 if __name__ == '__main__':
-    for _ in range(5):
-        main()
-    # full_sweep_id='jacobhadamczyk/clipping/jq7ib9su'
-    # wandb.agent(full_sweep_id, function=main, count=500)
+    # for _ in range(5):
+    #     main()
+    full_sweep_id='jacobhadamczyk/clipping/p76w2p4l'
+    wandb.agent(full_sweep_id, function=main, count=500)
     # main()
