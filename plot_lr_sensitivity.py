@@ -9,8 +9,11 @@ df = pd.read_csv('robust_avg_rewards.csv')
 def sem(x):
     return np.std(x, ddof=1) / np.sqrt(len(x))
 
+# Get the number of unique learning rates:
+lrs = df['lr'].unique()
+
 # Aggregate by group, calculating mean and SEM
-result = df.groupby(['lr', 'clip', 'naive']).agg(['mean', sem])
+result = df.groupby(['lr', 'clip', 'naive']).agg(['mean', sem, 'count'])
 
 # Rename columns for clarity
 # result.columns = ['Mean', 'SEM']
@@ -50,7 +53,7 @@ def plot_all(value):
             std = subdf[value]['sem']
             std = std.rolling(window=WINDOW).mean()
             if method == 'naive':
-                markersize = 8
+                markersize = 4
             else:
                 markersize = 4
             plt.plot(subdf['lr'], rwds, label=label, color=color, marker=marker, markersize=markersize)
@@ -59,7 +62,10 @@ def plot_all(value):
                                 color=color)
 
     plt.xlabel('Learning Rate')
-    plt.ylabel('Total Integrated Evaluation Reward (AUC)')
+    if value == 'avg_reward':
+        plt.ylabel('Total Integrated Evaluation Reward (AUC)')
+    elif value == 'avg_gap':
+        plt.ylabel('Average Gap Between Lower and Upper Bounds')
     plt.legend(loc='upper center', bbox_to_anchor=(0.5, 1.25), fancybox=True, shadow=False, ncol=3, fontsize=12)
     # use grid lines with sns style:
     plt.grid(True, linestyle='--', alpha=0.7)

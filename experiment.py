@@ -63,7 +63,7 @@ sql_acro = {
     'gamma': 0.99,
     'hidden_dim': 64,
     'learning_rate': 0.0066,
-    'learning_starts': 0.1*50_000,
+    'learning_starts': 0.0*50_000,
     'target_update_interval': 100,
     'tau': 0.92,
     'train_freq': 9,
@@ -107,7 +107,7 @@ def main(config=None):
         cfg = run.config
         config = cfg.as_dict()
 
-        clip_method = 'soft-fixed'
+        clip_method = 'none'#soft-fixed'
         # clip_method = 'hard'
 
         default_params = id_to_params[env_id]
@@ -131,9 +131,10 @@ def main(config=None):
         # }
         wandb.log({'clip_method': clip_method, 'env_id': env_str})#, 'pretrain': pretrain})
         agent = SoftQAgent(env, **default_params, **config,
-                            device='cpu', log_interval=1000,
+                            device='cpu', log_interval=500,
                             tensorboard_log='pong', num_nets=1, 
-                            render=False, 
+                            render=False,
+                            bellman_coef=1.0,
                             clip_method=clip_method)
         
         # Measure the time it takes to learn:
