@@ -1618,7 +1618,7 @@ MAPS = {
     ],
 }
 
-
+# Replaced G -> C (goal to candy) and H -> W (hole to wall)
 def generate_random_map(size=8, p=0.8):
     """Generates a random valid map (one that has a path from start to goal)
     :param size: size of each side of the grid
@@ -1640,16 +1640,16 @@ def generate_random_map(size=8, p=0.8):
                     c_new = c + y
                     if r_new < 0 or r_new >= size or c_new < 0 or c_new >= size:
                         continue
-                    if res[r_new][c_new] == 'G':
+                    if res[r_new][c_new] == 'C':
                         return True
-                    if res[r_new][c_new] not in '#H':
+                    if res[r_new][c_new] not in '#W':
                         frontier.append((r_new, c_new))
         return False
 
     while not valid:
         p = min(1, p)
-        res = np.random.choice(['F', 'H'], (size, size), p=[p, 1-p])
+        res = np.random.choice(['F', 'W'], (size, size), p=[p, 1-p])
         res[0][0] = 'S'
-        res[-1][-1] = 'G'
+        res[-1][-1] = 'C'
         valid = is_valid(res)
     return ["".join(x) for x in res]

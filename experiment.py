@@ -108,10 +108,13 @@ def main(config=None):
         config = cfg.as_dict()
 
         clip_method = 'soft-fixed'
+        # clip_method = 'hard'
 
         default_params = id_to_params[env_id]
-        default_params.pop('learning_rate')
-        default_params.pop('batch_size')
+        default_params['learning_rate'] = 1e-4
+        # default_params['batch_size'] = 1200
+        # default_params.pop('learning_rate')
+        # default_params.pop('batch_size')
         # def
         # default_params = {
         #     'beta': 0.1,
@@ -139,8 +142,8 @@ def main(config=None):
 
 
 if __name__ == '__main__':
-    # for _ in range(5):
-    #     main()
-    full_sweep_id='jacobhadamczyk/clipping/p76w2p4l'
-    wandb.agent(full_sweep_id, function=main, count=500)
-    # main()
+    for _ in range(5):
+        main()
+    # full_sweep_id='jacobhadamczyk/clipping/p76w2p4l'
+    # wandb.agent(full_sweep_id, function=main, count=500)
+    # # main()

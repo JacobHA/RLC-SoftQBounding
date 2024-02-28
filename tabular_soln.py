@@ -3,8 +3,10 @@ import os
 import gymnasium
 import numpy as np
 import pandas as pd
+import sys
+sys.path.append('visualizations')
 
-from tabular import ModifiedFrozenLake, get_dynamics_and_rewards, get_mdp_generator, visible_states_mask
+from tabular import ModifiedFrozenLake, generate_random_map, get_dynamics_and_rewards, get_mdp_generator, visible_states_mask
 from gymnasium.wrappers import TimeLimit
 import matplotlib.pyplot as plt
 
@@ -324,56 +326,112 @@ def plot_3d(desc, Q, lb, ub):
     plt.close('all')
 
 
-def main(env_str, clip, gamma, oracle, naive, save=True, lr=None):
+def main(env_str, clip, gamma, oracle, naive, save=True, lr=None, size=7):
     # 11x11dzigzag
-    env = ModifiedFrozenLake(map_name=env_str,cyclic_mode=False,slippery=0)
+    if env_str != 'random':
+        env = ModifiedFrozenLake(map_name=env_str,cyclic_mode=False,slippery=1.0)
+    else:
+        print("Generating a random map")
+        map_desc = generate_random_map(size, p=0.8)
+        env = ModifiedFrozenLake(desc=map_desc, cyclic_mode=False,slippery=0.5)
+        # Save a plot of the map to the visualizations folder:
+        # from visualizations.visualization import plot_dist
+        # plot_dist(map_desc, show_plot=False, filename='visualizations/random_map.png')
+
     env = TimeLimit(env, max_episode_steps=1000)
     # env = gymnasium.make('FrozenLake-v1', is_slippery=False)
+
     beta = 5
     gamma = 0.98
     lb, ub = None, None
     dynamics, rewards = get_dynamics_and_rewards(env)
     nS, nA = env.observation_space.n, env.action_space.n
-    if oracle:
-        # solve the MDP exactly:
-        from tabular import softq_solver
-        Q, _, _ = softq_solver(env, beta=beta, gamma=gamma, tolerance=1e-14)
-        # calculate bounds
-        from utils import get_bounds
-        generator = get_mdp_generator(env, dynamics, np.ones((nS, nA)) / nA)
-        lb, ub = get_bounds(Q, beta, gamma, rewards, generator)
+    from tabular import softq_solver
+    Q, _, _ = softq_solver(env, beta=beta, gamma=gamma, tolerance=1e-14)
+    # run the optimal policy to get the best reward:
+    optimal_reward = 0
+    state, _ = env.reset()
+    done = False
+    # the env is stochastic, so we need to run a few times:
+    for opt in range(5):
+        while not done:
+            action = np.argmax(Q[state])
+            state, reward, terminated, truncated, _ = env.step(action)
+            done = terminated or truncated
+            optimal_reward += reward
+        state, _ = env.reset()
+        done = False
+    optimal_reward /= 5
 
-    if naive:
-        # Get naive bounds rmin and rmax over 1-gamma:
-        lb = np.min(rewards) / (1 - gamma) * np.ones((nS, nA))
-        ub = np.max(rewards) / (1 - gamma) * np.ones((nS, nA))
-    
-    def learning_rate_schedule(t):
-        if lr is None:
-            if clip:
-                if naive:
-                    return 0.65
+    # Also run the uniform prior policy to get a worst-case reward:
+    state, _ = env.reset()
+    done = False
+    worst_reward = 0
+    for _ in range(5):
+        while not done:
+            action = np.random.choice(nA)
+            state, reward, terminated, truncated, _ = env.step(action)
+            done = terminated or truncated
+            worst_reward += reward
+        state, _ = env.reset()
+        done = False
+    worst_reward /= 5
+    # Loop over the same random maze 3 times:
+    normalized_reward = 0
+    normalized_gap = 0
+    num_runs = 10
+    for _ in range(num_runs):
+        if oracle:
+            # solve the MDP exactly:
+            from tabular import softq_solver
+            Q, _, _ = softq_solver(env, beta=beta, gamma=gamma, tolerance=1e-14)
+            # calculate bounds
+            from utils import get_bounds
+            generator = get_mdp_generator(env, dynamics, np.ones((nS, nA)) / nA)
+            lb, ub = get_bounds(Q, beta, gamma, rewards, generator)
+
+        if naive:
+            # Get naive bounds rmin and rmax over 1-gamma:
+            lb = np.min(rewards) / (1 - gamma) * np.ones((nS, nA))
+            ub = np.max(rewards) / (1 - gamma) * np.ones((nS, nA))
+        if clip:
+            lb = np.min(rewards) / (1 - gamma) * np.ones((nS, nA))
+            ub = np.max(rewards) / (1 - gamma) * np.ones((nS, nA))
+        
+        
+        def learning_rate_schedule(t):
+            if lr is None:
+                if clip:
+                    if naive:
+                        return 0.65
+                    else:
+                        return 0#0.15
                 else:
-                    return 0#0.15
+                    return 0.7
             else:
-                return 0.7
-        else:
-            return lr
+                return lr
 
-    sarsa = SoftQLearning(env, beta, gamma, learning_rate_schedule,
-                           plot=0, save_data=save, clip=clip, lb=lb, ub=ub,
-                           prefix='oracle'*oracle+'naive'*naive+f'lr{learning_rate_schedule(0):.2f}',
-                           keep_bounds_fixed=naive)
-    max_steps = 100_000
+        sarsa = SoftQLearning(env, beta, gamma, learning_rate_schedule,
+                            plot=0, save_data=save, clip=clip, lb=lb, ub=ub,
+                            prefix='oracle'*oracle+'naive'*naive+f'lr{learning_rate_schedule(0):.2f}',
+                            keep_bounds_fixed=naive)
+        max_steps = 200_000
+        eval_freq = 1000
+        total_reward = sarsa.train(max_steps, render=False, greedy_eval=True, eval_freq=eval_freq)
+        # normalize the reward by the optimal reward and worst-case (-1000)
+        normalized_reward += (total_reward / (max_steps // eval_freq) - worst_reward) / (optimal_reward - worst_reward)
+        # Get the final (average) gap between lower and upper bound:
+        gap = np.mean(sarsa.ub - sarsa.lb)
+        normalized_gap += gap / np.mean(Q)
+    
 
-    total_reward = sarsa.train(max_steps, render=False, greedy_eval=True, eval_freq=100)
-    return total_reward
+    return normalized_reward / num_runs, normalized_gap / num_runs
 
 
 if __name__ == '__main__':
     import argparse
     parser = argparse.ArgumentParser()
-    parser.add_argument('--env', type=str, default='7x7zigzag')
+    parser.add_argument('--env', type=str, default='random')
     parser.add_argument('--clip', type=bool, default=False)
     parser.add_argument('--gamma', type=float, default=0.98)
     parser.add_argument('--oracle', type=bool, default=False)
