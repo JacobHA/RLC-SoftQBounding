@@ -106,17 +106,18 @@ class SoftQLearning():
         # Compute the TD error:
         next_V = self.V_from_Q(self.Q)[next_state]
         target = reward + (1 - done) * self.gamma * next_V
-        delta = target - self.Q[state, action]
+        bellman_diff = target - self.Q[state, action]
         # Update the Q value:
-        self.Q[state, action] += lr * delta
+        self.Q[state, action] += lr * bellman_diff
         if self.clip:
             # self.Q[state, action] = np.clip(self.Q[state, action], self.lb[state, action], self.ub[state, action])
             self.Q = np.minimum(np.maximum(self.Q, self.lb), self.ub)
 
             # count how many values were clipped:
-            self.total_clips += np.sum(self.Q[state, action] == self.lb[state, action]) + np.sum(self.Q[state, action] == self.ub[state, action])
+            self.total_clips += np.sum(self.Q[state, action] == self.lb[state, action]) + \
+                np.sum(self.Q[state, action] == self.ub[state, action])
 
-        return delta
+        return bellman_diff
     
     def train(self, max_steps, render=False, greedy_eval=False, eval_freq=100):
         self.times = np.arange(max_steps, step=eval_freq)
@@ -243,8 +244,8 @@ class SoftQLearning():
         applicable_deltas = delta_rwd[:, self.visible_mask]
 
         delta_min, delta_max = np.min(applicable_deltas), np.max(applicable_deltas)
-        lb = Qi + delta_rwd + self.gamma * delta_min /(1-self.gamma)
-        ub = Qi + delta_rwd + self.gamma * delta_max /(1-self.gamma)
+        lb = Qi + delta_rwd + self.gamma * delta_min / (1 - self.gamma)
+        ub = Qi + delta_rwd + self.gamma * delta_max / (1 - self.gamma)
 
         # reshape to original shape:
         lb = lb.reshape(self.nS, self.nA).A
