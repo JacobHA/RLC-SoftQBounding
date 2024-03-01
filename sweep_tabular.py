@@ -20,10 +20,10 @@ options = {
     'naive': {'clip': True, 'naive': True},
 }
 
-# OPTION = 'hard'
-import random
-OPTION = random.choice(list(options.keys()))
-full_sweep_id = 'jacobhadamczyk/clipping/s6u20w12'
+OPTION = 'hard'
+# import random
+# OPTION = random.choice(list(options.keys()))
+full_sweep_id = 'jacobhadamczyk/clipping/kcvsl5k3'
 
 def wandb_func(config=None):
     with wandb.init(project='clipping', entity='jacobhadamczyk') as run:

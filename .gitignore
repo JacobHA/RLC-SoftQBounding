@@ -4,3 +4,4 @@ pong/
 *.tfevents.*
 *.npy
 *.pyc
+outfiles/
