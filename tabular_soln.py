@@ -330,7 +330,7 @@ def plot_3d(desc, Q, lb, ub):
 def main(env_str, clip, gamma, oracle, naive, save=True, lr=None, size=7):
     # 11x11dzigzag
     if env_str != 'random':
-        env = ModifiedFrozenLake(map_name=env_str,cyclic_mode=False,slippery=1.0)
+        env = ModifiedFrozenLake(map_name=env_str,cyclic_mode=False,slippery=0.5)
     else:
         print("Generating a random map")
         map_desc = generate_random_map(size, p=0.8)
@@ -380,7 +380,7 @@ def main(env_str, clip, gamma, oracle, naive, save=True, lr=None, size=7):
     # Loop over the same random maze 3 times:
     normalized_reward = 0
     normalized_gap = 0
-    num_runs = 10
+    num_runs = 1
     for _ in range(num_runs):
         if oracle:
             # solve the MDP exactly:
@@ -406,7 +406,7 @@ def main(env_str, clip, gamma, oracle, naive, save=True, lr=None, size=7):
                     if naive:
                         return 0.65
                     else:
-                        return 0#0.15
+                        return -0.005#-0.01#0.15
                 else:
                     return 0.7
             else:
@@ -416,8 +416,8 @@ def main(env_str, clip, gamma, oracle, naive, save=True, lr=None, size=7):
                             plot=0, save_data=save, clip=clip, lb=lb, ub=ub,
                             prefix='oracle'*oracle+'naive'*naive+f'lr{learning_rate_schedule(0):.2f}',
                             keep_bounds_fixed=naive)
-        max_steps = 200_000
-        eval_freq = 1000
+        max_steps = 50_000
+        eval_freq = 500
         total_reward = sarsa.train(max_steps, render=False, greedy_eval=True, eval_freq=eval_freq)
         # normalize the reward by the optimal reward and worst-case (-1000)
         normalized_reward += (total_reward / (max_steps // eval_freq) - worst_reward) / (optimal_reward - worst_reward)
