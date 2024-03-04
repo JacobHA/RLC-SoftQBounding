@@ -396,7 +396,10 @@ if __name__ == '__main__':
     parser.add_argument('--oracle', type=bool, default=False)
     parser.add_argument('--naive', type=bool, default=False)
     parser.add_argument('-n', type=int, default=1)
+    parser.add_argument('--lr', type=float, default=None)
     args = parser.parse_args()
 
     for _ in range(args.n):
-        main(env_str=args.env, clip=args.clip, gamma=args.gamma, oracle=args.oracle, naive=args.naive)
+        main(env_str=args.env, clip=args.clip, 
+             gamma=args.gamma, oracle=args.oracle, 
+             naive=args.naive, lr=args.lr)
