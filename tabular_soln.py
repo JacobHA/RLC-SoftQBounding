@@ -4,6 +4,8 @@ import gymnasium
 import numpy as np
 import pandas as pd
 import sys
+
+from utils import get_optimal_reward, get_random_policy_reward
 sys.path.append('visualizations')
 
 from tabular import ModifiedFrozenLake, generate_random_map, get_dynamics_and_rewards, get_mdp_generator, visible_states_mask
@@ -105,6 +107,7 @@ class SoftQLearning():
     def learn(self, state, action, reward, next_state, done, lr):
         # Compute the TD error:
         next_V = self.V_from_Q(self.Q)[next_state]
+        # TODO: Clip Q(s',a') or Q(s,a)
         target = reward + (1 - done) * self.gamma * next_V
         bellman_diff = target - self.Q[state, action]
         # Update the Q value:
@@ -119,7 +122,11 @@ class SoftQLearning():
 
         return bellman_diff
     
-    def train(self, max_steps, render=False, greedy_eval=False, eval_freq=100):
+    def train(self, max_steps, render=False, greedy_eval=False, eval_freq=100, bound_update_freq=None):
+        if bound_update_freq is not None:
+            self.bound_update_freq = bound_update_freq
+        else:
+            self.bound_update_freq = eval_freq
         self.times = np.arange(max_steps, step=eval_freq)
         if self.plot:
             plt.ion()
@@ -144,6 +151,8 @@ class SoftQLearning():
             next_state, reward, terminated, truncated, _ = self.env.step(action)
             done = terminated or truncated
             lr = self.learning_rate_schedule(steps)
+            if not self.keep_bounds_fixed and steps % self.bound_update_freq == 0:
+                self.lb, self.ub = self.get_bounds()
             delta = self.learn(state, action, reward, next_state, terminated, lr)
             state = next_state
             steps += 1
@@ -157,9 +166,6 @@ class SoftQLearning():
                     self.lb, self.ub = self.get_bounds()
 
             if steps % eval_freq == 0:
-                if not self.keep_bounds_fixed:
-                    self.lb, self.ub = self.get_bounds()
-
                 eval_rwd = self.evaluate(1, render=False, greedy=greedy_eval)
                 total_reward += eval_rwd
                 print(f'steps={steps}, eval_rwd={eval_rwd:.2f}, lb={self.lb.mean():.2f}, ub={self.ub.mean():.2f}, lr={lr:.6f}')
@@ -265,128 +271,34 @@ class SoftQLearning():
                          self.reward_over_time, self.loss_over_time, self.times[:len(self.Q_over_time)]])
         np.save(self.path, data)
         
-        
-
-def plot_3d(desc, Q, lb, ub):
-    """
-    Plot the env desc (maze) on a grid. Above this, plot the lb, Q and ub values in 3d.
-    """
-    # tilt the plot so its easier to see the values vs bounds:
-    fig, ax = plt.subplots(1, 1, subplot_kw={'projection':'3d'})
-    ax.view_init(elev=20, azim=30)  # Adjust the elev and azim angles as needed
-    # plot the maze:
-    nR, nC = desc.shape
-    print(desc)
-    bar_height = 0.01
-    maze_loc = Q.mean() - 0.01*np.abs(Q.mean())
-    for i in range(nR):
-        for j in range(nC):
-            if desc[i, j] == b'H':
-                ax.bar3d(j, i, maze_loc, 1, 1, bar_height, color='r')
-            elif desc[i, j] == b'S':
-                ax.bar3d(j, i, maze_loc, 1, 1, bar_height, color='g')
-            elif desc[i, j] == b'G':
-                ax.bar3d(j, i, maze_loc, 1, 1, bar_height, color='b')
-            elif desc[i, j] == b'F':
-                ax.bar3d(j, i, maze_loc, 1, 1, bar_height, color='w')
-            elif desc[i, j] == b'W':
-                ax.bar3d(j, i, maze_loc, 1, 1, bar_height, color='k')
-            elif desc[i, j] == b'C':
-                ax.bar3d(j, i, maze_loc, 1, 1, bar_height, color='y')
-
-    # plot the Q values:
-    # for i in range(nR):
-    #     for j in range(nC):
-    #         # for a in range(4):
-    #         q = Q[i*nC + j, :].mean()
-    #         l = lb[i*nC + j, :].mean()
-    #         u = ub[i*nC + j, :].mean()
-    #         ax.bar3d(j, i, q, 1, 1, bar_height, color='k', alpha=0.2)
-    #         # ax.bar3d(j, i, l, 1, 1, bar_height, color='b', alpha=0.2)
-    #         ax.bar3d(j, i, u, 1, 1, bar_height, color='r', alpha=0.2)
-
-    # Calculate the mean Q values for each grid point
-    nA=4
-    q_means = np.mean(Q.reshape(nR, nC, nA), axis=2)
-    lb_means = np.mean(lb.reshape(nR, nC, nA), axis=2)
-    ub_means = np.mean(ub.reshape(nR, nC, nA), axis=2)
-
-    # Plot the mean Q values as a surface
-    x = np.arange(0, nC, 1) + 0.5
-    y = np.arange(0, nR, 1) + 0.5
-    x, y = np.meshgrid(x, y)
-
-    ax.plot_surface(x, y, q_means, color='k', alpha=0.8, rstride=1, cstride=1)
-    ax.plot_surface(x, y, lb_means, color='b', alpha=0.8, rstride=1, cstride=1)
-    ax.plot_surface(x, y, ub_means, color='r', alpha=0.8, rstride=1, cstride=1)
-
-
-
-    plt.show()
-    plt.pause(0.5)
-    plt.close('all')
 
 
 def main(env_str, clip, gamma, oracle, naive, save=True, lr=None, size=7):
     # 11x11dzigzag
     if env_str != 'random':
-        env = ModifiedFrozenLake(map_name=env_str,cyclic_mode=False,slippery=0.5)
+        env = ModifiedFrozenLake(map_name=env_str,cyclic_mode=False,slippery=1.0)
     else:
         print("Generating a random map")
         map_desc = generate_random_map(size, p=0.8)
         env = ModifiedFrozenLake(desc=map_desc, cyclic_mode=False,slippery=0.5)
-        # Save a plot of the map to the visualizations folder:
-        # from visualizations.visualization import plot_dist
-        # plot_dist(map_desc, show_plot=False, filename='visualizations/random_map.png')
 
     env = TimeLimit(env, max_episode_steps=1000)
-    # env = gymnasium.make('FrozenLake-v1', is_slippery=False)
-
     beta = 5
     gamma = 0.98
     lb, ub = None, None
     dynamics, rewards = get_dynamics_and_rewards(env)
     nS, nA = env.observation_space.n, env.action_space.n
-    from tabular import softq_solver
-    Q, _, _ = softq_solver(env, beta=beta, gamma=gamma, tolerance=1e-14)
-    # run the optimal policy to get the best reward:
-    optimal_reward = 0
-    state, _ = env.reset()
-    done = False
-    # the env is stochastic, so we need to run a few times:
-    for opt in range(5):
-        while not done:
-            action = np.argmax(Q[state])
-            state, reward, terminated, truncated, _ = env.step(action)
-            done = terminated or truncated
-            optimal_reward += reward
-        state, _ = env.reset()
-        done = False
-    optimal_reward /= 5
+    
+    optimal_reward, Q = get_optimal_reward(env, beta, gamma)
+    worst_reward = get_random_policy_reward(env, nA)
 
-    # Also run the uniform prior policy to get a worst-case reward:
-    state, _ = env.reset()
-    done = False
-    worst_reward = 0
-    for _ in range(5):
-        while not done:
-            action = np.random.choice(nA)
-            state, reward, terminated, truncated, _ = env.step(action)
-            done = terminated or truncated
-            worst_reward += reward
-        state, _ = env.reset()
-        done = False
-    worst_reward /= 5
     # Loop over the same random maze 3 times:
     normalized_reward = 0
     normalized_gap = 0
-    num_runs = 1
+    num_runs = 10
     for _ in range(num_runs):
         if oracle:
-            # solve the MDP exactly:
-            from tabular import softq_solver
-            Q, _, _ = softq_solver(env, beta=beta, gamma=gamma, tolerance=1e-14)
-            # calculate bounds
+            _, Q = get_optimal_reward(env, beta, gamma)
             from utils import get_bounds
             generator = get_mdp_generator(env, dynamics, np.ones((nS, nA)) / nA)
             lb, ub = get_bounds(Q, beta, gamma, rewards, generator)
@@ -413,20 +325,66 @@ def main(env_str, clip, gamma, oracle, naive, save=True, lr=None, size=7):
                 return lr
 
         sarsa = SoftQLearning(env, beta, gamma, learning_rate_schedule,
-                            plot=0, save_data=save, clip=clip, lb=lb, ub=ub,
+                            plot=1, save_data=save, clip=clip, lb=lb, ub=ub,
                             prefix='oracle'*oracle+'naive'*naive+f'lr{learning_rate_schedule(0):.2f}',
                             keep_bounds_fixed=naive)
-        max_steps = 50_000
-        eval_freq = 500
-        total_reward = sarsa.train(max_steps, render=False, greedy_eval=True, eval_freq=eval_freq)
+        
+        max_steps = 200_000
+        eval_freq = 1000
+        total_reward = sarsa.train(max_steps, render=False, greedy_eval=True, 
+                                   eval_freq=eval_freq, bound_update_freq=1)
         # normalize the reward by the optimal reward and worst-case (-1000)
         normalized_reward += (total_reward / (max_steps // eval_freq) - worst_reward) / (optimal_reward - worst_reward)
         # Get the final (average) gap between lower and upper bound:
         gap = np.mean(sarsa.ub - sarsa.lb)
         normalized_gap += gap / np.mean(Q)
-    
 
     return normalized_reward / num_runs, normalized_gap / num_runs
+
+def main_sweep(map_desc, clip, naive, lr):
+
+    env = ModifiedFrozenLake(desc=map_desc, cyclic_mode=False,slippery=0.5)
+    env = TimeLimit(env, max_episode_steps=1000)
+
+    beta = 5
+    gamma = 0.98
+    _, rewards = get_dynamics_and_rewards(env)
+    nS, nA = env.observation_space.n, env.action_space.n
+    
+    optimal_reward, Q = get_optimal_reward(env, beta, gamma)
+    worst_reward = get_random_policy_reward(env, nA)
+
+    lb, ub = None, None
+
+    if clip or naive:
+        # Get naive bounds rmin and rmax over 1-gamma:
+        lb = np.min(rewards) / (1 - gamma) * np.ones((nS, nA))
+        ub = np.max(rewards) / (1 - gamma) * np.ones((nS, nA))
+
+    # Loop over the same random maze (stochastic dynamics):
+    normalized_reward = 0
+    normalized_gap = 0
+    num_runs = 5
+    for _ in range(num_runs):
+
+        def learning_rate_schedule(t): return lr
+        sarsa = SoftQLearning(env, beta, gamma, learning_rate_schedule,
+                            plot=0, save_data=False, clip=clip, lb=lb, ub=ub,
+                            prefix='naive'*naive+f'lr{learning_rate_schedule(0):.2f}',
+                            keep_bounds_fixed=naive)
+        
+        max_steps = 200_000
+        eval_freq = 1000
+        total_reward = sarsa.train(max_steps, render=False, greedy_eval=True, eval_freq=eval_freq, bound_update_freq=1)
+        
+        # normalize the reward by the optimal reward and worst-case:
+        normalized_reward += (total_reward / (max_steps // eval_freq) - worst_reward) / (optimal_reward - worst_reward)
+        # Get the final (average) gap between lower and upper bound:
+        gap = np.mean(sarsa.ub - sarsa.lb)
+        normalized_gap += gap / np.mean(Q)
+
+    return normalized_reward / num_runs, normalized_gap / num_runs
+
 
 
 if __name__ == '__main__':
