@@ -2,24 +2,6 @@ import matplotlib.pyplot as plt
 import pandas as pd
 import numpy as np
 
-# Load the data from avg_rewards.csv:
-df = pd.read_csv('robust_avg_rewards.csv')
-
-# Define a function to calculate SEM
-def sem(x):
-    return np.std(x, ddof=1) / np.sqrt(len(x))
-
-# Get the number of unique learning rates:
-lrs = df['lr'].unique()
-
-# Aggregate by group, calculating mean and SEM
-result = df.groupby(['lr', 'clip', 'naive']).agg(['mean', sem, 'count'])
-
-# Rename columns for clarity
-# result.columns = ['Mean', 'SEM']
-
-# df = df.groupby(['lr', 'clip', 'naive']).agg({'avg_reward': ['mean', 'std']})
-df = result.reset_index()
 
 # Define a mapping for methods
 methods = {
@@ -29,11 +11,44 @@ methods = {
 }
 
 
-labels = ['Clipping:\nProposed Bounds', "Clipping:\nBaseline Bounds", 'No Clipping']
 colors = ['#FF5733', '#007acc',  '#333333']
 markers = ['o', '^', 's']
-def plot_all(value):
+
+
+
+def preprocess(csv_file):
+    # Load the data from avg_rewards.csv:
+    df = pd.read_csv(csv_file)
+
+    # Define a function to calculate SEM
+    def sem(x):
+        return np.std(x, ddof=1) / np.sqrt(len(x))
+
+    # Get the number of unique learning rates:
+    lrs = df['lr'].unique()
+
+    # Aggregate by group, calculating mean and SEM
+    result = df.groupby(['lr', 'clip', 'naive']).agg(['mean', sem, 'count'])
+
+    # Rename columns for clarity
+    # result.columns = ['Mean', 'SEM']
+
+    # df = df.groupby(['lr', 'clip', 'naive']).agg({'avg_reward': ['mean', 'std']})
+    df = result.reset_index()
+    return df
+
+
+def plot_all(ax, csv_file, value, custom_names=None):
+
+    df = preprocess(csv_file)
+
     # Plot each of the methods in a different color:
+    if custom_names is not None:
+        # assert len(custom_names) == len(), "Custom names must have the same length as the methods dict."
+        labels = custom_names
+    else:
+        labels = ['Clipping:\nProposed Bounds', "Clipping:\nBaseline Bounds", 'No Clipping']
+
     for method, label, color, marker in zip(methods.keys(), labels, colors, markers):
         clip = methods[method]["clip"]
         naive = methods[method]["naive"]
@@ -43,8 +58,6 @@ def plot_all(value):
         # Look at the lr and value columns:
         subdf = subdf[['lr', value]]
         if not subdf.empty:
-            norm = 1# len(subdf)**0.5
-            # norm = 10**0.5
             WINDOW = 1
             # Smooth out the plot using a moving average with increased window_length
             rwds = subdf[value]['mean']
@@ -56,26 +69,46 @@ def plot_all(value):
                 markersize = 4
             else:
                 markersize = 4
-            plt.plot(subdf['lr'], rwds, label=label, color=color, marker=marker, markersize=markersize)
-            plt.fill_between(subdf['lr'], rwds - std / norm,
-                            rwds + std / norm, alpha=0.2,
+            # ax.plot(subdf['lr'], rwds, label=label, color=color, marker=marker, markersize=markersize)
+            # plt.fill_between(subdf['lr'], rwds - std,
+            #                 rwds + std, alpha=0.2,
+            #                     color=color)
+            # Plot with shading for error:
+            ax.plot(subdf['lr'], rwds, label=label, color=color, marker=marker, markersize=markersize)
+            ax.fill_between(subdf['lr'], rwds - std,
+                            rwds + std, alpha=0.2,
                                 color=color)
-
+            
+            
     plt.xlabel('Learning Rate')
     if value == 'avg_reward':
         plt.ylabel('Total Integrated Evaluation Reward (AUC)')
     elif value == 'avg_gap':
         plt.ylabel('Average Gap Between Lower and Upper Bounds')
-    plt.legend(loc='upper center', bbox_to_anchor=(0.5, 1.25), fancybox=True, shadow=False, ncol=3, fontsize=12)
+    plt.legend(loc='upper center', bbox_to_anchor=(0.5, 1.5), fancybox=True, shadow=False, ncol=2, fontsize=12)
     # use grid lines with sns style:
     plt.grid(True, linestyle='--', alpha=0.7)
     # plt.xlim(0,0.0001)
 
     #plt.title('Learning Rate Sensitivity')
-
+    plt.xscale('log')
     plt.tight_layout()
-    plt.savefig(f'visualizations/lr_sensitivity{value}.png', dpi=300)
-    plt.close()
+    plt.savefig(f'visualizations/lr_sensitivity{value}.png', dpi=300, bbox_inches='tight')
 
-plot_all('avg_reward')
-plot_all('avg_gap')
+
+
+if __name__ == '__main__':
+
+    for data_name in ['avg_reward', 'avg_gap']:
+        fig, ax = plt.subplots()
+
+        csv_files = ['lr_sweep.csv', 'lr_sweep2.csv']
+
+        for csv_file in csv_files:
+            custom_names = None
+            if csv_file == 'lr_sweep2.csv':
+                custom_names = ['Clipping:\nEvery Step Bound Before']
+            plot_all(ax, csv_file, data_name, custom_names=custom_names)
+            if data_name == 'avg_reward':
+                plt.ylim(-0.1,1.05)
+
