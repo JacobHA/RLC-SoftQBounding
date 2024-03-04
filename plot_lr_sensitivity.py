@@ -62,20 +62,31 @@ def plot_all(ax, csv_file, value, custom_names=None):
             # Smooth out the plot using a moving average with increased window_length
             rwds = subdf[value]['mean']
             rwds = rwds.rolling(window=WINDOW).mean()
+            if value == 'avg_gap':
+                rwds = np.abs(rwds)
             # Also smooth the standard deviation:
             std = subdf[value]['sem']
             std = std.rolling(window=WINDOW).mean()
-            if method == 'naive':
-                markersize = 4
-            else:
-                markersize = 4
+            markersize=4
+            if value == 'avg_gap':
+                # Rescale the x axis by a factor of lr:
+                x = subdf['lr']
+                # Add a bold line at y=0 to indicate optimal gap / tight bound:
+                ax.axhline(0, color='k', linestyle='--', alpha=0.5)
+
+            elif value == 'avg_reward':
+                x = subdf['lr']#np.abs(df[(df['clip'] == clip) & (df['naive'] == naive)]['avg_gap']['mean'])/subdf['lr']
+                # Rescale the x axis by a factor of lr:
+                # x = subdf['lr']
+                # markersize=4
+
             # ax.plot(subdf['lr'], rwds, label=label, color=color, marker=marker, markersize=markersize)
             # plt.fill_between(subdf['lr'], rwds - std,
             #                 rwds + std, alpha=0.2,
             #                     color=color)
             # Plot with shading for error:
-            ax.plot(subdf['lr'], rwds, label=label, color=color, marker=marker, markersize=markersize)
-            ax.fill_between(subdf['lr'], rwds - std,
+            ax.plot(x, rwds, label=label, color=color, marker=marker, markersize=markersize)
+            ax.fill_between(x, rwds - std,
                             rwds + std, alpha=0.2,
                                 color=color)
             
@@ -83,6 +94,8 @@ def plot_all(ax, csv_file, value, custom_names=None):
     plt.xlabel('Learning Rate')
     if value == 'avg_reward':
         plt.ylabel('Total Integrated Evaluation Reward (AUC)')
+        plt.xlabel('Learning rate')
+
     elif value == 'avg_gap':
         plt.ylabel('Average Gap Between Lower and Upper Bounds')
     plt.legend(loc='upper center', bbox_to_anchor=(0.5, 1.5), fancybox=True, shadow=False, ncol=2, fontsize=12)
@@ -91,6 +104,7 @@ def plot_all(ax, csv_file, value, custom_names=None):
     # plt.xlim(0,0.0001)
 
     #plt.title('Learning Rate Sensitivity')
+
     plt.xscale('log')
     plt.tight_layout()
     plt.savefig(f'visualizations/lr_sensitivity{value}.png', dpi=300, bbox_inches='tight')
