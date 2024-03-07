@@ -10,12 +10,6 @@ methods = {
     'none': {'clip': False, 'naive': False},
 }
 
-
-colors = ['#FF5733', '#007acc',  '#333333']
-markers = ['o', '^', 's']
-
-
-
 def preprocess(csv_file):
     # Load the data from avg_rewards.csv:
     df = pd.read_csv(csv_file)
@@ -47,7 +41,16 @@ def plot_all(ax, csv_file, value, custom_names=None):
         # assert len(custom_names) == len(), "Custom names must have the same length as the methods dict."
         labels = custom_names
     else:
-        labels = ['Clipping:\nProposed Bounds', "Clipping:\nBaseline Bounds", 'No Clipping']
+        labels = ['Clipping:\nProposed\nBounds', "Clipping:\nBaseline\nBounds", 'No Clipping']
+
+    colors = ['#FF5733', '#007acc',  '#333333']
+    markers = ['o', '^', 's']
+
+    if csv_file != 'lr_sweep2.csv':
+        # Remove the hard clip method from plotting:
+        labels = labels[1:]
+        colors = colors[1:]
+        markers = markers[1:]
 
     for method, label, color, marker in zip(methods.keys(), labels, colors, markers):
         clip = methods[method]["clip"]
@@ -67,7 +70,8 @@ def plot_all(ax, csv_file, value, custom_names=None):
             # Also smooth the standard deviation:
             std = subdf[value]['sem']
             std = std.rolling(window=WINDOW).mean()
-            markersize=4
+            markersize = 10
+            linewidth = 4
             if value == 'avg_gap':
                 # Rescale the x axis by a factor of lr:
                 x = subdf['lr']
@@ -85,20 +89,26 @@ def plot_all(ax, csv_file, value, custom_names=None):
             #                 rwds + std, alpha=0.2,
             #                     color=color)
             # Plot with shading for error:
-            ax.plot(x, rwds, label=label, color=color, marker=marker, markersize=markersize)
+            ax.plot(x, rwds, label=label, color=color, marker=marker, 
+                    markersize=markersize, lw=linewidth)
             ax.fill_between(x, rwds - std,
                             rwds + std, alpha=0.2,
                                 color=color)
             
             
-    plt.xlabel('Learning Rate')
+    plt.xlabel('Learning Rate', fontdict={'fontsize': 18})
+    # Change tick mark fonts:
+    plt.xticks(fontsize=18)
+    plt.yticks(fontsize=18)
     if value == 'avg_reward':
-        plt.ylabel('Total Integrated Evaluation Reward (AUC)')
+        plt.ylabel('Average Integrated\nEvaluation Reward (AUC)', fontdict={'fontsize': 18})
         plt.xlabel('Learning rate')
 
     elif value == 'avg_gap':
         plt.ylabel('Average Gap Between Lower and Upper Bounds')
-    plt.legend(loc='upper center', bbox_to_anchor=(0.5, 1.5), fancybox=True, shadow=False, ncol=2, fontsize=12)
+    plt.legend(loc='upper center', bbox_to_anchor=(0.5, 1.325), fancybox=True, 
+               shadow=False, ncol=3, fontsize=16)
+    # plt.xlim(1e-5,1)
     # use grid lines with sns style:
     plt.grid(True, linestyle='--', alpha=0.7)
     # plt.xlim(0,0.0001)
@@ -114,14 +124,14 @@ def plot_all(ax, csv_file, value, custom_names=None):
 if __name__ == '__main__':
 
     for data_name in ['avg_reward', 'avg_gap']:
-        fig, ax = plt.subplots()
+        fig, ax = plt.subplots(figsize=(8, 6))
 
         csv_files = ['lr_sweep.csv', 'lr_sweep2.csv']
 
         for csv_file in csv_files:
             custom_names = None
             if csv_file == 'lr_sweep2.csv':
-                custom_names = ['Clipping:\nEvery Step Bound Before']
+                custom_names = ['Clipping:\nProposed\nBounds']
             plot_all(ax, csv_file, data_name, custom_names=custom_names)
             if data_name == 'avg_reward':
                 plt.ylim(-0.1,1.05)
