@@ -145,9 +145,6 @@ class SoftQAgent(BaseAgent):
      
         # num_nets, batch_size, 1 (leftover from actions)
         curr_softq = curr_softq.squeeze(2)
-
-        # log the mean online q :
-
         # 32 * perturbation
         self.logger.record("train/online_q_mean", curr_softq.mean().item())
         # Calculate the softq ("critic") loss:

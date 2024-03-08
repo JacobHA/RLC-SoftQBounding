@@ -13,7 +13,7 @@ args = parser.parse_args()
 clip = args.clip
 naive = args.naive
 lr = args.lr
-path = 'big_lr_sweep_propalgo_fast.csv'
+path = 'mf_lr_sweep_propalgo_fast.csv'
 
 
 import concurrent.futures

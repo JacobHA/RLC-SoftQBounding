@@ -18,6 +18,8 @@ class NewSoftQLearning():
                  save_data=False, clip=False, lb=None, ub=None,
                  prefix='', keep_bounds_fixed=False):
         self.env = env
+        self.rewards_table = -np.ones((env.observation_space.n, env.action_space.n))
+        self.dynamics_table = np.zeros((env.observation_space.n, env.action_space.n, env.observation_space.n))
         self.nS = env.observation_space.n
         self.nA = env.action_space.n
 
@@ -65,8 +67,8 @@ class NewSoftQLearning():
         self.rewards = self.rewards.reshape(self.nS, self.nA)
         self.lb = np.ones((self.nS, self.nA)) * -np.inf if lb is None else lb
         self.ub = np.ones((self.nS, self.nA)) * np.inf if ub is None else ub
-        if not keep_bounds_fixed:
-            self.lb, self.ub = self.get_bounds()
+        # if not keep_bounds_fixed:
+        #     self.lb, self.ub = self.get_bounds()
         self.total_clips = 0
         self.Q_over_time = []
         self.q_stds = []
@@ -156,9 +158,16 @@ class NewSoftQLearning():
             pi = self.pi_from_Q(self.Q)
             action = self.draw_action(pi, state, greedy=False)
             next_state, reward, terminated, truncated, _ = self.env.step(action)
+            # Update the reward and dynamics tables:
+            self.rewards_table[state, action] = reward
+            self.dynamics_table[state, action, next_state] += 1
+            # normalize the dynamics table over next state:
+            self.dynamics_table[state, action] /= np.sum(self.dynamics_table[state, action])
+
             done = terminated or truncated
             lr = self.learning_rate_schedule(steps)
-            self.lb, self.ub = self.get_bounds()
+            if steps > 1000:
+                self.lb, self.ub = self.get_bounds()
             delta = self.learn(state, action, reward, next_state, terminated, lr)
             state = next_state
             steps += 1
@@ -167,9 +176,9 @@ class NewSoftQLearning():
             if done:
                 state, _ = self.env.reset()
                 done = False
-                # update bounds:
-                if not self.keep_bounds_fixed:
-                    self.lb, self.ub = self.get_bounds()
+                # # update bounds:
+                # if not self.keep_bounds_fixed:
+                #     self.lb, self.ub = self.get_bounds()
 
             if steps % eval_freq == 0:
                 eval_rwd = self.evaluate(1, render=False, greedy=greedy_eval)
@@ -247,24 +256,40 @@ class NewSoftQLearning():
         plt.pause(0.001)
 
     def get_bounds(self):
+        from scipy.sparse import csr_matrix
+
         delta_rwd = np.empty((self.nS, self.nA))
         Qi = self.Q.flatten()
-        Qj = np.log(self.mdp_generator.T.dot(np.exp(self.beta * Qi.T)).T) / self.beta
- 
-        delta_rwd = self.rewards.flatten() + self.gamma * Qj - Qi
-        applicable_deltas = delta_rwd[:, self.visible_mask]
+        # calculate mdp generator from the dynamics table:
+        p = self.dynamics_table.reshape(self.nS * self.nA, self.nS)
+        dyn = get_mdp_generator(self.env, 
+                          csr_matrix(p).T, 
+                          self.prior_policy)
+
+        # Qj = np.log(self.mdp_generator.T.dot(np.exp(self.beta * Qi.T)).T) / self.beta
+        # check if dyn is all zeros:
+        Qj = np.log(dyn.T.dot(np.exp(self.beta * Qi.T)).T) / self.beta
+        # ignore the Qj's that are inf:
+        finite = np.where(np.isfinite(Qj) & np.isfinite(Qi))
+        # join with the visible mask:
+        vis = np.intersect1d(finite, self.visible_mask)
+
+        delta_rwd = self.rewards_table.flatten() + self.gamma * Qj - Qi
+        applicable_deltas = delta_rwd[vis]
+        # replace delta_rwd infs with zero:
+        delta_rwd[~np.isfinite(delta_rwd)] = self.rewards_table.flatten()[~np.isfinite(delta_rwd)]
 
         delta_min, delta_max = np.min(applicable_deltas), np.max(applicable_deltas)
         lb = Qi + delta_rwd + self.gamma * delta_min / (1 - self.gamma)
         ub = Qi + delta_rwd + self.gamma * delta_max / (1 - self.gamma)
 
         # reshape to original shape:
-        lb = lb.reshape(self.nS, self.nA).A
-        ub = ub.reshape(self.nS, self.nA).A
+        lb = lb.reshape(self.nS, self.nA)
+        ub = ub.reshape(self.nS, self.nA)
 
         # take the tighter bound from previous step:
-        lb = np.maximum(lb, self.lb)
-        ub = np.minimum(ub, self.ub)
+        # lb = np.maximum(lb, self.lb)
+        # ub = np.minimum(ub, self.ub)
 
         # assert np.allclose(lb <= ub), 'lb > ub'
         return lb, ub
@@ -288,6 +313,7 @@ def main_sweep(map_desc, lr):
     nS, nA = env.observation_space.n, env.action_space.n
     
     optimal_reward, Q = get_optimal_reward(env, beta, gamma)
+    print(f'Optimal reward: {optimal_reward}')
     worst_reward = get_random_policy_reward(env, nA)
 
     # Get naive bounds rmin and rmax over 1-gamma:
@@ -305,10 +331,10 @@ def main_sweep(map_desc, lr):
                             plot=0, save_data=False, clip=True, lb=lb, ub=ub,
                             keep_bounds_fixed=False)
         
-        max_steps = 500
-        eval_freq = 50
+        max_steps = 50000
+        eval_freq = 500
         total_reward = sarsa.train(max_steps, render=False, greedy_eval=True, 
-                                   eval_freq=eval_freq, bound_update_freq=1)
+                                   eval_freq=eval_freq, bound_update_freq=10)
         
         # normalize the reward by the optimal reward and worst-case:
         normalized_reward += (total_reward / (max_steps // eval_freq) - worst_reward) / (optimal_reward - worst_reward)
@@ -329,7 +355,7 @@ if __name__ == '__main__':
     parser.add_argument('--oracle', type=bool, default=False)
     parser.add_argument('--naive', type=bool, default=False)
     parser.add_argument('-n', type=int, default=1)
-    parser.add_argument('--lr', type=float, default=0.5)
+    parser.add_argument('--lr', type=float, default=0.05)
     args = parser.parse_args()
 
     desc = list(np.load(f'random_mazes/random_map_0.npy'))
