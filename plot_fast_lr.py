@@ -10,11 +10,7 @@ methods = {
     'none': {'clip': False, 'naive': False},
 }
 
-def auc_to_step(auc, max_step=200_000):
-    # Convert AUC to step function:
-    return max_step*(1 - auc)
-
-def preprocess(csv_file, steps=200_000):
+def preprocess(csv_file):
     # Load the data from avg_rewards.csv:
     df = pd.read_csv(csv_file)
 
@@ -26,7 +22,8 @@ def preprocess(csv_file, steps=200_000):
     lrs = df['lr'].unique()
 
     # apply the func auc_to_step to the [value]:
-    df['avg_reward'] = df['avg_reward'].apply(auc_to_step, args=(steps,))
+    df['avg_reward'] = df['avg_reward'].apply(auc_to_step)
+
 
     # Aggregate by group, calculating mean and SEM
     result = df.groupby(['lr', 'clip', 'naive']).agg(['mean', sem, 'count'])
@@ -38,18 +35,13 @@ def preprocess(csv_file, steps=200_000):
     df = result.reset_index()
     return df
 
+def auc_to_step(auc, max_step=200):
+    # Convert AUC to step function:
+    return 500*(1 - auc)
 
-def plot_all(ax, csv_file, value, 
-             custom_names=None, 
-             custom_symbols=None,
-             custom_colors=None
-             ):
+def plot_all(ax, csv_file, value, custom_names=None, custom_symbols=None):
 
-    if csv_file == 'lr_sweep_propalgo_fast.csv':
-        num_steps = 200
-    else:
-        num_steps = 200_000
-    df = preprocess(csv_file, steps=num_steps)
+    df = preprocess(csv_file)
 
     # Plot each of the methods in a different color:
     if custom_names is not None:
@@ -60,19 +52,15 @@ def plot_all(ax, csv_file, value,
 
     if custom_symbols is not None:
         markers = custom_symbols
-    else:
-        markers = ['o', '^', 's']
 
-    if custom_colors is not None:
-        colors = custom_colors
-    else:
-        colors = ['#FF5733', '#007acc',  '#333333']
+    colors = ['#FF5733', '#007acc',  '#333333']
+    markers = ['o', '^', 's']
 
-    if csv_file == 'lr_sweep2.csv':
-        # Remove the hard clip method from plotting:
-        labels = labels[1:]
-        colors = colors[1:]
-        markers = markers[1:]
+    # if not csv_file in ['lr_sweep2.csv', 'lr_sweep_propalgo.csv']:
+    #     # Remove the hard clip method from plotting:
+    #     labels = labels[1:]
+    #     colors = colors[1:]
+    #     markers = markers[1:]
 
     for method, label, color, marker in zip(methods.keys(), labels, colors, markers):
         clip = methods[method]["clip"]
@@ -85,6 +73,7 @@ def plot_all(ax, csv_file, value,
         if not subdf.empty:
             WINDOW = 1
             # Smooth out the plot using a moving average with increased window_length
+
             rwds = subdf[value]['mean']
             rwds = rwds.rolling(window=WINDOW).mean()
             if value == 'avg_gap':
@@ -93,9 +82,7 @@ def plot_all(ax, csv_file, value,
             std = subdf[value]['sem']
             std = std.rolling(window=WINDOW).mean()
             markersize = 10
-            if marker == '*':
-                markersize = 16
-            linewidth = 3
+            linewidth = 4
             if value == 'avg_gap':
                 # Rescale the x axis by a factor of lr:
                 x = subdf['lr']
@@ -124,9 +111,6 @@ def plot_all(ax, csv_file, value,
     # Change tick mark fonts:
     plt.xticks(fontsize=18)
     plt.yticks(fontsize=18)
-    # plt.ylim(1,200_000)
-    plt.yscale('log')
-
     if value == 'avg_reward':
         plt.ylabel('Average Integrated\nEvaluation Reward (AUC)', fontdict={'fontsize': 18})
         plt.xlabel('Learning rate')
@@ -134,52 +118,34 @@ def plot_all(ax, csv_file, value,
     elif value == 'avg_gap':
         plt.ylabel('Average Gap Between Lower and Upper Bounds')
     plt.legend(loc='upper center', bbox_to_anchor=(0.5, 1.325), fancybox=True, 
-               shadow=False, ncol=4, fontsize=16)
+               shadow=False, ncol=3, fontsize=16)
     # plt.xlim(1e-5,1)
     # use grid lines with sns style:
     plt.grid(True, linestyle='--', alpha=0.7)
     # plt.xlim(0,0.0001)
 
     #plt.title('Learning Rate Sensitivity')
+    # plt.ylim(-0.1,1.05)
 
     plt.xscale('log')
     plt.tight_layout()
-    plt.savefig(f'visualizations/lr_sensitivity{value}.png', dpi=300, bbox_inches='tight')
+    plt.savefig(f'visualizations/big_fast_lr_sensitivity{value}.png', dpi=300, bbox_inches='tight')
 
 
 
 if __name__ == '__main__':
 
     for data_name in ['avg_reward', 'avg_gap']:
-        fig, ax = plt.subplots(figsize=(9, 6))
+        fig, ax = plt.subplots(figsize=(8, 6))
 
-        csv_files = ['lr_sweep.csv', 'lr_sweep2.csv',# 'lr_sweep_propalgo.csv',
-                     'lr_sweep_propalgo_fast.csv']
+        csv_files = ['lr_sweep_propalgo_fast.csv']
 
         for csv_file in csv_files:
             custom_names = None
-            custom_symbols = None
-            custom_colors = None
-            if csv_file == 'lr_sweep2.csv':
-                custom_names = ['Clipping:\nProposed\nBounds']
-            elif csv_file == 'lr_sweep_propalgo_fast.csv':
+            if csv_file == 'big_lr_sweep_propalgo_fast.csv':
                 custom_names = ['Clipping:\nProposed\nAlgorithm']
                 custom_symbols = ['*']
-                custom_colors = ['g']
-            plot_all(ax, csv_file, data_name, 
-                     custom_names=custom_names,
-                     custom_symbols=custom_symbols,
-                     custom_colors=custom_colors
-                     
-                     )
-            # if data_name == 'avg_reward':
-                # plt.ylim(-0.1,1.05)
+            plot_all(ax, csv_file, data_name, custom_names=custom_names)
+            if data_name == 'avg_reward':
+                plt.ylim(-0.1,1.05)
 
-
-# governing wave equation for dissipative materials?
-# discrete time analogs?
-# nonlinear model version interpretable?
-# linear time feedback?
-            
-
-            # kmax dep. and dynamic programming?
