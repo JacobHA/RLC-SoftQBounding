@@ -22,11 +22,8 @@ def preprocess(csv_file, steps=200_000):
     def sem(x):
         return np.std(x, ddof=1) / np.sqrt(len(x))
 
-    # Get the number of unique learning rates:
-    lrs = df['lr'].unique()
-
     # apply the func auc_to_step to the [value]:
-    df['avg_reward'] = df['avg_reward'].apply(auc_to_step, args=(steps,))
+    df['avg_reward'] = df['avg_reward']#.apply(auc_to_step, args=(steps,))
 
     # Aggregate by group, calculating mean and SEM
     result = df.groupby(['lr', 'clip', 'naive']).agg(['mean', sem, 'count'])
@@ -56,7 +53,7 @@ def plot_all(ax, csv_file, value,
         # assert len(custom_names) == len(), "Custom names must have the same length as the methods dict."
         labels = custom_names
     else:
-        labels = ['Clipping:\nProposed\nBounds', "Clipping:\nBaseline\nBounds", 'No Clipping']
+        labels = ['Clipping:\nProposed\nBounds', "Clipping:\nBaseline Bounds", 'No Clipping']
 
     if custom_symbols is not None:
         markers = custom_symbols
@@ -68,15 +65,18 @@ def plot_all(ax, csv_file, value,
     else:
         colors = ['#FF5733', '#007acc',  '#333333']
 
-    if csv_file == 'lr_sweep2.csv':
-        # Remove the hard clip method from plotting:
-        labels = labels[1:]
-        colors = colors[1:]
-        markers = markers[1:]
+    # if csv_file == 'lr_sweep.csv':
+    #     # Remove the hard clip method from plotting:
+    #     labels = labels[1:]
+    #     colors = colors[1:]
+    #     markers = markers[1:]
 
     for method, label, color, marker in zip(methods.keys(), labels, colors, markers):
         clip = methods[method]["clip"]
         naive = methods[method]["naive"]
+        if csv_file == 'lr_sweep.csv':
+            if method == 'hard':
+                continue
 
         # get rows with clip == clip and naive == naive:
         subdf = df[(df['clip'] == clip) & (df['naive'] == naive)]
@@ -125,7 +125,7 @@ def plot_all(ax, csv_file, value,
     plt.xticks(fontsize=18)
     plt.yticks(fontsize=18)
     # plt.ylim(1,200_000)
-    plt.yscale('log')
+    # plt.yscale('log')
 
     if value == 'avg_reward':
         plt.ylabel('Average Integrated\nEvaluation Reward (AUC)', fontdict={'fontsize': 18})
@@ -133,8 +133,8 @@ def plot_all(ax, csv_file, value,
 
     elif value == 'avg_gap':
         plt.ylabel('Average Gap Between Lower and Upper Bounds')
-    plt.legend(loc='upper center', bbox_to_anchor=(0.5, 1.325), fancybox=True, 
-               shadow=False, ncol=4, fontsize=16)
+    plt.legend(loc='upper center', bbox_to_anchor=(0.45, 1.525), fancybox=True, 
+               shadow=False, ncol=2, fontsize=16)
     # plt.xlim(1e-5,1)
     # use grid lines with sns style:
     plt.grid(True, linestyle='--', alpha=0.7)
@@ -151,19 +151,19 @@ def plot_all(ax, csv_file, value,
 if __name__ == '__main__':
 
     for data_name in ['avg_reward', 'avg_gap']:
-        fig, ax = plt.subplots(figsize=(9, 6))
+        fig, ax = plt.subplots(figsize=(6, 5.5))
 
-        csv_files = ['lr_sweep.csv', 'lr_sweep2.csv',# 'lr_sweep_propalgo.csv',
-                     'lr_sweep_propalgo_fast.csv']
+        csv_files = ['lr_sweep.csv', 'lr_sweep_propalgo_fast.csv',#'lr_sweep2.csv',# 'lr_sweep_propalgo.csv',
+                     'mf_lr_sweep_propalgo_fast.csv'] #'lr_sweep_propalgo_fast.csv',]
 
         for csv_file in csv_files:
             custom_names = None
             custom_symbols = None
             custom_colors = None
-            if csv_file == 'lr_sweep2.csv':
-                custom_names = ['Clipping:\nProposed\nBounds']
-            elif csv_file == 'lr_sweep_propalgo_fast.csv':
-                custom_names = ['Clipping:\nProposed\nAlgorithm']
+            if csv_file == 'lr_sweep_propalgo_fast.csv':#'lr_sweep2.csv':
+                custom_names = ['Clipping:\nGiven Model']
+            elif csv_file == 'mf_lr_sweep_propalgo_fast.csv':#'lr_sweep_propalgo_fast.csv':
+                custom_names = ['Clipping:\nLearned Model']
                 custom_symbols = ['*']
                 custom_colors = ['g']
             plot_all(ax, csv_file, data_name, 
