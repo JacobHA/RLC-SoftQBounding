@@ -107,24 +107,26 @@ class NewSoftQLearning():
         
     def learn(self, state, action, reward, next_state, done, lr):
         # Compute the TD error:
+        # self.Q = np.minimum(np.maximum(self.Q, self.lb), self.ub)
         next_V = self.V_from_Q(self.Q)[next_state]
         # TODO: Clip Q(s',a') or Q(s,a)
         target = reward + (1 - done) * self.gamma * next_V
         bellman_diff = target - self.Q[state, action]
+        self.Q[state,action] += bellman_diff * lr
 
         # self.Q[state, action] = np.clip(self.Q[state, action], self.lb[state, action], self.ub[state, action])
-        Qnew = np.minimum(np.maximum(self.Q, self.lb), self.ub)
+        self.Q = np.minimum(np.maximum(self.Q, self.lb), self.ub)
 
-        # check if Q has changes:
-        if np.allclose(Qnew, self.Q):
-            # use bellman
-            self.Q[state,action] += bellman_diff * lr
+        # # check if Q has changes:
+        # if np.allclose(Qnew, self.Q):
+        #     # use bellman
+        #     self.Q[state,action] += bellman_diff * lr
 
-        else:
-            # use the clipped Q:
-            self.Q = Qnew
+        # else:
+        #     # use the clipped Q:
+        #     self.Q = Qnew
 
-        # count how many values were clipped:
+        # # count how many values were clipped:
         self.total_clips += np.sum(self.Q[state, action] == self.lb[state, action]) + \
             np.sum(self.Q[state, action] == self.ub[state, action])
 
@@ -162,12 +164,20 @@ class NewSoftQLearning():
             self.rewards_table[state, action] = reward
             self.dynamics_table[state, action, next_state] += 1
             # normalize the dynamics table over next state:
-            self.dynamics_table[state, action] /= np.sum(self.dynamics_table[state, action])
+            # self.dynamics_table[state, action] /= np.sum(self.dynamics_table[state, action])
+            # Get model accuracy:
+            dyn = self.dynamics_table.reshape(49*4,49).T
+            # normalize the nonzero columns:
+            for i in range(dyn.shape[1]):
+                if np.sum(dyn[:,i]) > 0:
+                    dyn[:,i] /= np.sum(dyn[:,i])
+            # print((np.abs(dyn[:,self.visible_mask] - self.dynamics.A[:,self.visible_mask])).mean())
 
             done = terminated or truncated
             lr = self.learning_rate_schedule(steps)
-            if steps > 1000:
-                self.lb, self.ub = self.get_bounds()
+            if steps > 5000:
+                if steps % self.bound_update_freq == 0:
+                    self.lb, self.ub = self.get_bounds()
             delta = self.learn(state, action, reward, next_state, terminated, lr)
             state = next_state
             steps += 1
@@ -263,7 +273,7 @@ class NewSoftQLearning():
         # calculate mdp generator from the dynamics table:
         p = self.dynamics_table.reshape(self.nS * self.nA, self.nS)
         dyn = get_mdp_generator(self.env, 
-                          csr_matrix(p).T, 
+                          csr_matrix(p.T), 
                           self.prior_policy)
 
         # Qj = np.log(self.mdp_generator.T.dot(np.exp(self.beta * Qi.T)).T) / self.beta
@@ -277,7 +287,8 @@ class NewSoftQLearning():
         delta_rwd = self.rewards_table.flatten() + self.gamma * Qj - Qi
         applicable_deltas = delta_rwd[vis]
         # replace delta_rwd infs with zero:
-        delta_rwd[~np.isfinite(delta_rwd)] = self.rewards_table.flatten()[~np.isfinite(delta_rwd)]
+        delta_rwd[~np.isfinite(delta_rwd)] = np.ones(len([~np.isfinite(delta_rwd)])) * \
+            np.mean(delta_rwd[vis])
 
         delta_min, delta_max = np.min(applicable_deltas), np.max(applicable_deltas)
         lb = Qi + delta_rwd + self.gamma * delta_min / (1 - self.gamma)
@@ -290,6 +301,8 @@ class NewSoftQLearning():
         # take the tighter bound from previous step:
         # lb = np.maximum(lb, self.lb)
         # ub = np.minimum(ub, self.ub)
+        lb = np.maximum(lb, self.rewards.min() / (1 - self.gamma))
+        ub = np.minimum(ub, self.rewards.max() / (1 - self.gamma))
 
         # assert np.allclose(lb <= ub), 'lb > ub'
         return lb, ub
@@ -331,8 +344,8 @@ def main_sweep(map_desc, lr):
                             plot=0, save_data=False, clip=True, lb=lb, ub=ub,
                             keep_bounds_fixed=False)
         
-        max_steps = 50000
-        eval_freq = 500
+        max_steps = 200000
+        eval_freq = 100
         total_reward = sarsa.train(max_steps, render=False, greedy_eval=True, 
                                    eval_freq=eval_freq, bound_update_freq=10)
         
