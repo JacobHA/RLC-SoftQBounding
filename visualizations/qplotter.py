@@ -84,10 +84,10 @@ def add_to_plot(ax, df, name, marker, label, color):
 gamma=0.98
 fig, axes = plt.subplots(1,2, sharey=True, figsize=(12, 5))
 markers = ['o', 's']
-folders = [f'clip-{gamma}data', f'{gamma}data']
+folders = [f'clip-{gamma}data', f'{gamma}data'][::-1]
 labels = ['Lower Bound','Q Values', 'Upper Bound']
 colors = ['#0db8a1', '#000000', '#f01abe']
-titles = ['Clipping During Training', 'No Clipping During Training']
+titles = ['Clipping During Training', 'No Clipping During Training'][::-1]
 for ax, folder, marker, title in zip(axes, folders, markers, titles):
     df = load_data(folder)
     
@@ -117,7 +117,7 @@ for ax, folder, marker, title in zip(axes, folders, markers, titles):
     box_props = dict(facecolor='white', edgecolor='black', boxstyle='round,pad=0.5')
     ax.text(0.5, 0.95, title, transform=ax.transAxes, fontsize=18, color='black', ha='center', va='center', bbox=box_props)
 
-    
+
 # put a shared legend:
 # make the legend:
 labels=[ 'Lower Bound', 'Q Values', 'Upper Bound']
