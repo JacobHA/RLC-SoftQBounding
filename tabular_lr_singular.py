@@ -20,7 +20,7 @@ import concurrent.futures
 
 for num in range(10):
     # Grab a map from the random mazes folder
-    desc = np.load(f'big_random_mazes/random_map_{num}.npy')
+    desc = np.load(f'random_mazes/random_map_{num}.npy')
     desc = list(desc)
 
     def process_map(_):
@@ -30,7 +30,7 @@ for num in range(10):
     n_random_maps = 1
 
     # Using ThreadPoolExecutor for parallel processing
-    with concurrent.futures.ThreadPoolExecutor(max_workers=4) as executor:
+    with concurrent.futures.ThreadPoolExecutor(max_workers=8) as executor:
         # Map the process_map function to the range of n_random_maps
         results = list(executor.map(process_map, range(n_random_maps)))
 

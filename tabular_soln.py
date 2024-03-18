@@ -325,7 +325,7 @@ def main(env_str, clip, gamma, oracle, naive, save=True, lr=None, size=7):
                 return lr
 
         sarsa = SoftQLearning(env, beta, gamma, learning_rate_schedule,
-                            plot=1, save_data=save, clip=clip, lb=lb, ub=ub,
+                            plot=0, save_data=save, clip=clip, lb=lb, ub=ub,
                             prefix='oracle'*oracle+'naive'*naive+f'lr{learning_rate_schedule(0):.2f}',
                             keep_bounds_fixed=naive)
         
@@ -390,7 +390,7 @@ def main_sweep(map_desc, clip, naive, lr):
 if __name__ == '__main__':
     import argparse
     parser = argparse.ArgumentParser()
-    parser.add_argument('--env', type=str, default='random')
+    parser.add_argument('--env', type=str, default='7x7zigzag')
     parser.add_argument('--clip', type=bool, default=False)
     parser.add_argument('--gamma', type=float, default=0.98)
     parser.add_argument('--oracle', type=bool, default=False)
