@@ -181,13 +181,14 @@ class NewSoftQLearning():
             done = terminated or truncated
             lr = self.learning_rate_schedule(steps)
             # first learn a sufficiently accurate model:
-            if self.give_model:
-                if steps % self.bound_update_freq == 0:
-                    self.lb, self.ub = self.get_bounds()
-            else:    
-                if steps > 5000:
+            if not self.keep_bounds_fixed:
+                if self.give_model:
                     if steps % self.bound_update_freq == 0:
                         self.lb, self.ub = self.get_bounds()
+                else:    
+                    if steps > 5000:
+                        if steps % self.bound_update_freq == 0:
+                            self.lb, self.ub = self.get_bounds()
 
             delta = self.learn(state, action, reward, next_state, terminated, lr)
             state = next_state
@@ -340,9 +341,11 @@ nS_to_settings = {
     144: {'gamma': 0.98, 'max_steps': 600_000, 'eval_freq': 300, 'bound_update_freq': 30},
 }
 
-def main_sweep(map_desc, lr, give_model, clip, plot=False):
+def main_sweep(map_desc, lr, give_model, clip, naive=False, plot=False):
 
     print("Clip:", clip)
+    if clip:
+        print("Baseline:", naive)
 
     env = ModifiedFrozenLake(desc=map_desc, cyclic_mode=False, slippery=0.5)
     env = TimeLimit(env, max_episode_steps=1000)
@@ -368,9 +371,10 @@ def main_sweep(map_desc, lr, give_model, clip, plot=False):
 
         sarsa = NewSoftQLearning(env, beta, gamma, lambda t: lr,
                                 save_data=False, clip=clip, lb=lb, ub=ub,
-                                keep_bounds_fixed=False,
+                                keep_bounds_fixed=naive,
                                 give_model=give_model,
-                                plot=plot)
+                                plot=plot,
+                                verbose=False)
         
         max_steps = nS_to_settings[nS]['max_steps']
         eval_freq = nS_to_settings[nS]['eval_freq']
