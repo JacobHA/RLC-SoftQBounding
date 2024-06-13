@@ -29,12 +29,13 @@ else:
             f.write('clip,naive,lr,avg_reward,avg_gap\n')
 
 for num in range(30):
+    print("Running random map", num)
     # Grab a map from the random mazes folder
     desc = np.load(f'mazes/random_mazes/random_map_{num}.npy')
     desc = list(desc)
 
     def process_map(_):
-        return main_sweep(desc, lr=lr, give_model=True, clip=clip)#, naive=naive)
+        return main_sweep(desc, lr=lr, give_model=True, clip=clip, naive=naive)
 
     # Number of random maps
     n_random_maps = 1
