@@ -28,7 +28,7 @@ else:
         with open(path, 'w') as f:
             f.write('clip,naive,lr,avg_reward,avg_gap\n')
 
-for num in range(10,30):
+for num in range(30):
     # Grab a map from the random mazes folder
     desc = np.load(f'mazes/random_mazes/random_map_{num}.npy')
     desc = list(desc)
