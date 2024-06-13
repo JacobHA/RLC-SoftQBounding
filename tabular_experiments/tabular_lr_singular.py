@@ -34,7 +34,7 @@ for num in range(10,30):
     desc = list(desc)
 
     def process_map(_):
-        return main_sweep(desc, lr=lr, give_model=True, clip=clip)#, naive=naive)
+        return main_sweep(desc, lr=lr, give_model=True, clip=clip, naive=naive)
 
     # Number of random maps
     n_random_maps = 1
