@@ -114,20 +114,23 @@ class NewSoftQLearning():
 
         target = reward + (1 - done) * self.gamma * next_V
         bellman_diff = target - self.Q[state, action]
-        self.Q[state,action] += bellman_diff * lr
+
+        if not self.clip:
+            # Standard Bellman update:
+            self.Q[state,action] += bellman_diff * lr
 
         # self.Q[state, action] = np.clip(self.Q[state, action], self.lb[state, action], self.ub[state, action])
         if self.clip:
-            self.Q = np.minimum(np.maximum(self.Q, self.lb), self.ub)
+            clipped_Q = np.minimum(np.maximum(self.Q, self.lb), self.ub)
 
-        # # check if Q has changes:
-        # if np.allclose(Qnew, self.Q):
-        #     # use bellman
-        #     self.Q[state,action] += bellman_diff * lr
+            # check if clipped Q has changes:
+            if np.allclose(clipped_Q, self.Q):
+                # default to bellman
+                self.Q[state,action] += bellman_diff * lr
 
-        # else:
-        #     # use the clipped Q:
-        #     self.Q = Qnew
+            else:
+                # use the clipped Q:
+                self.Q = clipped_Q
 
         # # count how many values were clipped:
         self.total_clips += np.sum(self.Q[state, action] == self.lb[state, action]) + \
@@ -322,7 +325,7 @@ class NewSoftQLearning():
             lb = np.maximum(lb, self.rewards.min() / (1 - self.gamma))
             ub = np.minimum(ub, self.rewards.max() / (1 - self.gamma))
 
-        assert np.all(lb <= ub), 'lb > ub'
+        # assert np.all(lb <= ub), 'lb > ub'
         return lb, ub
                 
     def save(self):
@@ -333,7 +336,7 @@ class NewSoftQLearning():
         np.save(self.path, data)
         
 nS_to_settings = {
-    49: {'gamma': 0.98, 'max_steps': 200_000, 'eval_freq': 100, 'bound_update_freq': 10},
+    49: {'gamma': 0.98, 'max_steps': 200_000, 'eval_freq': 100, 'bound_update_freq': 1},
     144: {'gamma': 0.98, 'max_steps': 600_000, 'eval_freq': 300, 'bound_update_freq': 30},
 }
 

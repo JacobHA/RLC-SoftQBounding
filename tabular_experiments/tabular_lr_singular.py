@@ -16,14 +16,19 @@ naive = args.naive
 lr = args.lr
 path = 'lr_smallmaze.csv'
 
+# check that the csv file exists:
+if not os.path.exists(path):
+    with open(path, 'w') as f:
+        f.write('clip,naive,lr,avg_reward,avg_gap\n')
 
-# open the csv in append mode, and add {clip, naive, lr, avg_reward} to the file:
-if os.path.exists(path):
-    df = pd.read_csv(path)
 else:
-    df = pd.DataFrame(columns=['clip', 'naive', 'lr', 'avg_reward', 'avg_gap'])
+    # ensure the first row is the column names:
+    df = pd.read_csv(path)
+    if 'clip' not in df.columns:
+        with open(path, 'w') as f:
+            f.write('clip,naive,lr,avg_reward,avg_gap\n')
 
-for num in range(3,10):
+for num in range(10,30):
     # Grab a map from the random mazes folder
     desc = np.load(f'mazes/random_mazes/random_map_{num}.npy')
     desc = list(desc)
@@ -39,8 +44,6 @@ for num in range(3,10):
         # Map the process_map function to the range of n_random_maps
         results = list(executor.map(process_map, range(n_random_maps)))
 
-    # results = process_map(0)
-
     # Separate rewards and gaps
     rewards = [result[0] for result in results]
     gaps = [result[1] for result in results]
@@ -53,8 +56,9 @@ for num in range(3,10):
 
 
     data = {'clip': [clip], 'naive': [naive], 'lr': [lr], 'avg_reward': [average_reward], 'avg_gap': [average_gaps]}
-
-    # add the new data to the df:
+    # add the new data to the most up-to-date df:
+    df = pd.read_csv(path)
     df = pd.concat([df, pd.DataFrame(data)], axis=0)
     df.to_csv(path, index=False)
+
 
