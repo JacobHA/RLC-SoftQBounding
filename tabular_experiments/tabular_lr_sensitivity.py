@@ -9,7 +9,7 @@ methods = {
     'naive': {'clip': 'True', 'naive': 'True'},
 }
 
-learning_rates = np.logspace(-6, 0, 20)
+learning_rates = np.logspace(-5, 0, 20)
 
 def run_command(command):
     subprocess.run(command, shell=True)
