@@ -2,7 +2,6 @@ import gymnasium
 from BoundedSQL import SoftQAgent
 import wandb
 
-from tabular import ModifiedFrozenLake
 from gymnasium.wrappers import TimeLimit
 
 sql_froz = {
@@ -32,16 +31,16 @@ sql_cpole = {
 }
 
 sql_lunar = {
-    'batch_size': 128,
-    'beta': 10,
-    'gamma': 0.98,
+    'batch_size': 32,
+    'beta': 7.07,
+    'gamma': 0.99,
     'hidden_dim': 128,
-    'learning_rate': 0.003,
-    'learning_starts': 0.023*500_000,
-    'target_update_interval': 1000,
+    'learning_rate': 0.00014,
+    'learning_starts': 5_000,
+    'target_update_interval': 10,
     'tau': 0.92,
     'train_freq': 5,
-    'gradient_steps': 5,
+    'gradient_steps': 49,
 }
 
 sql_mcar = {
@@ -58,27 +57,21 @@ sql_mcar = {
 }
 
 sql_acro = {
-    'batch_size': 128,
-    'beta': 2.6,
+    'batch_size': 64,
+    'beta': 4.5,
     'gamma': 0.99,
     'hidden_dim': 64,
-    'learning_rate': 0.0066,
-    'learning_starts': 0.0*50_000,
-    'target_update_interval': 100,
+    'learning_rate': 0.0005,
+    'learning_starts': 0.0,
+    'target_update_interval': 10,
     'tau': 0.92,
-    'train_freq': 9,
-    'gradient_steps': 9,
+    'train_freq': 2,
+    'gradient_steps': 20,
 }
 
 
 
 def main(config=None):
-    map_name = '7x7zigzag'
-    env_id='FrozenLake-v1'
-    env = ModifiedFrozenLake(map_name=map_name,cyclic_mode=False,slippery=0)
-    env = TimeLimit(env, max_episode_steps=1000)
-    # env_id = TimeLimit(env_id, max_episode_steps=100)
-
     env_id = 'CartPole-v1'
     # env_id = 'Taxi-v3'
     # env_id = 'CliffWalking-v0'
@@ -97,48 +90,28 @@ def main(config=None):
         'LunarLander-v2': sql_lunar,
     }
 
-    if not isinstance(env_id, str):
-        env_str = map_name
-    else:
-        env_str = env_id
-
+    env_str = env_id
     
     with wandb.init(project='clipping', entity='jacobhadamczyk', sync_tensorboard=True) as run:
         cfg = run.config
         config = cfg.as_dict()
 
-        clip_method = 'none'#soft-fixed'
+        clip_method = 'soft-new_algo'
         # clip_method = 'hard'
 
         default_params = id_to_params[env_id]
-        default_params['learning_rate'] = 1e-4
+        # default_params['learning_rate'] = 1e-3
         # default_params['batch_size'] = 1200
-        # default_params.pop('learning_rate')
-        # default_params.pop('batch_size')
-        # def
-        # default_params = {
-        #     'beta': 0.1,
-        #     'gamma': 0.98,
-        #     'learning_starts': 100,
-        #     'learning_rate': 0.05,
-        #     # 'perceptron_model': True,
-        #     'target_update_interval': 50,
-        #     'batch_size': 128,
-        #     'soft_weight': 12,
-        # }
-        # default_params = {
-        #     'soft_weight': 2,
-        # }
+        
         wandb.log({'clip_method': clip_method, 'env_id': env_str})#, 'pretrain': pretrain})
         agent = SoftQAgent(env, **default_params, **config,
-                            device='cpu', log_interval=500,
+                            device='auto', log_interval=50,
                             tensorboard_log='pong', num_nets=1, 
                             render=False,
-                            bellman_coef=1.0,
                             clip_method=clip_method)
         
         # Measure the time it takes to learn:
-        agent.learn(total_timesteps=30_000)
+        agent.learn(total_timesteps=5_000)
         wandb.finish()
 
 
