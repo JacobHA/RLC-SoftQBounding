@@ -5,13 +5,12 @@ import gymnasium as gym
 from matplotlib import pyplot as plt
 import numpy as np
 from stable_baselines3.common.logger import configure
-from gymnasium.wrappers.atari_preprocessing import AtariPreprocessing
 import time
 
 import torch
 import wandb
 
-def env_id_to_envs(env_id, render, is_atari=False, permute_dims=False):
+def env_id_to_envs(env_id, render):
     if isinstance(env_id, gym.Env):
         env = env_id
         # Make a new copy for the eval env:
@@ -46,21 +45,15 @@ def logger_at_folder(log_dir=None, algo_name=None):
             time.sleep(0.5)
             num += 1
             tmp_path = f"{log_dir}/{algo_name}_{num}"
-            # try:
-            #     os.makedirs(tmp_path, exist_ok=False)
-            # except FileExistsError:
-            #     # try again with an incremented number:
-            # pass
+
         logger = configure(tmp_path, ["stdout", "tensorboard"])
     else:
         # print the logs to stdout:
-        # , "csv", "tensorboard"])
         logger = configure(format_strings=["stdout"])
 
     return logger
 
 def log_class_vars(self, logger, params, use_wandb=False):
-    # logger = self.logger
     for key, value in params.items():
         value = self.__dict__[value]
         # first check if value is a tensor:
@@ -69,27 +62,6 @@ def log_class_vars(self, logger, params, use_wandb=False):
         logger.record(key, value)
         if use_wandb:
             wandb.log({key: value})
-
-def get_Q_values(fa, save_name=None):
-    env = fa.env
-    nS = env.observation_space.n
-    nA = fa.nA
-    eigvec = np.zeros((nS, nA))
-    for i in range(nS):
-        q_val = np.mean([logu.forward(i).cpu().detach().numpy() for logu in fa.model.nets], axis=0)
-        q_val[i, :] = q_val
-
-    if save_name is not None:
-        np.save(f'{save_name}.npy', eigvec)
-
-    # normalize:
-    eigvec /= np.linalg.norm(eigvec)
-    if save_name is not None:
-        np.save(f'{save_name}.npy', eigvec)
-    return eigvec
-
-def is_tabular(env):
-    return isinstance(env.observation_space, gym.spaces.Discrete) and isinstance(env.action_space, gym.spaces.Discrete)
 
 
 def sample_wandb_hyperparams(params, int_hparams=None):
@@ -128,8 +100,8 @@ def get_bounds(Q, beta, gamma, rewards, mdp_generator, visible_mask=None):
         applicable_deltas = delta_rwd
 
     delta_min, delta_max = np.min(applicable_deltas), np.max(applicable_deltas)
-    lb = Qi + delta_rwd + gamma * delta_min /(1-gamma)
-    ub = Qi + delta_rwd + gamma * delta_max /(1-gamma)
+    lb = Qi + delta_rwd + gamma * delta_min / (1-gamma)
+    ub = Qi + delta_rwd + gamma * delta_max / (1-gamma)
 
     # reshape to original shape:
     lb = lb.reshape(nS, nA).A
@@ -138,7 +110,7 @@ def get_bounds(Q, beta, gamma, rewards, mdp_generator, visible_mask=None):
     # assert np.allclose(lb <= ub), 'lb > ub'
     return lb, ub
 
-def plot_3d(desc, Q, lb, ub):
+def plot_3d(desc, Q, lb, ub, name_suffix=''):
     """
     Plot the env desc (maze) on a grid. Above this, plot the lb, Q and ub values in 3d.
     """
@@ -165,18 +137,8 @@ def plot_3d(desc, Q, lb, ub):
             elif desc[i, j] == b'C':
                 ax.bar3d(j, i, maze_loc, 1, 1, bar_height, color='y')
 
-    # plot the Q values:
-    # for i in range(nR):
-    #     for j in range(nC):
-    #         # for a in range(4):
-    #         q = Q[i*nC + j, :].mean()
-    #         l = lb[i*nC + j, :].mean()
-    #         u = ub[i*nC + j, :].mean()
-    #         ax.bar3d(j, i, q, 1, 1, bar_height, color='k', alpha=0.2)
-    #         # ax.bar3d(j, i, l, 1, 1, bar_height, color='b', alpha=0.2)
-    #         ax.bar3d(j, i, u, 1, 1, bar_height, color='r', alpha=0.2)
-
     # Calculate the mean Q values for each grid point
+    #TODO remove hardcoding:
     nA=4
     q_means = np.mean(Q.reshape(nR, nC, nA), axis=2)
     lb_means = np.mean(lb.reshape(nR, nC, nA), axis=2)
@@ -191,9 +153,7 @@ def plot_3d(desc, Q, lb, ub):
     ax.plot_surface(x, y, lb_means, color='b', alpha=0.8, rstride=1, cstride=1)
     ax.plot_surface(x, y, ub_means, color='r', alpha=0.8, rstride=1, cstride=1)
 
-
-
     plt.show()
-    plt.pause(0.5)
-    plt.close('all')
-
+    # plt.pause(0.5)
+    # plt.close('all')
+    plt.savefig('3d_plot' + name_suffix + '.png')
