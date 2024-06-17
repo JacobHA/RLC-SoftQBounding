@@ -1,0 +1,9 @@
+batch_size: 64
+beta: 4.5
+clip_method: none
+gradient_steps: 20
+hidden_dim: 64
+learning_rate: 0.0005
+soft_weight: 1.0
+target_update_interval: 10
+train_freq: 2
