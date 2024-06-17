@@ -88,9 +88,6 @@ def get_Q_values(fa, save_name=None):
         np.save(f'{save_name}.npy', eigvec)
     return eigvec
 
-def is_tabular(env):
-    return isinstance(env.observation_space, gym.spaces.Discrete) and isinstance(env.action_space, gym.spaces.Discrete)
-
 
 def sample_wandb_hyperparams(params, int_hparams=None):
     sampled = {}

@@ -1,21 +1,22 @@
 import gymnasium
-from BoundedSQL_learned import SoftQAgent
+from BoundedSQL import SoftQAgent
 import wandb
-from gymnasium.wrappers import TimeLimit
 
 ENTITY = 'your_username_here'
+# log in to wandb:
+wandb.login()
 
 sql_cpole = {
-    'batch_size': 64,
-    'beta': 1,
-    'gamma': 0.98,
+    'batch_size': 512,
+    'beta': 0.019,
+    'gamma': 0.99,
     'hidden_dim': 64,
-    'learning_rate': 0.01,
+    'learning_rate': 0.016,
     'learning_starts': 0,
-    'target_update_interval': 100,
-    'tau': 0.95,
-    'train_freq': 9,
-    'gradient_steps': 9,
+    'target_update_interval': 1,
+    'tau': 1,
+    'train_freq': 2,
+    'gradient_steps': 16,
 }
 
 sql_mcar = {
@@ -39,7 +40,7 @@ sql_acro = {
     'learning_rate': 0.0005,
     'learning_starts': 0.0,
     'target_update_interval': 10,
-    'tau': 0.92,
+    'tau': 1,
     'train_freq': 2,
     'gradient_steps': 20,
 }
@@ -47,7 +48,7 @@ sql_acro = {
 id_to_timesteps = {
     'MountainCar-v0': 500_000,
     'CartPole-v1': 10_000,
-    'Acrobot-v1': 5_000,
+    'Acrobot-v1': 2_000,
 }
 
 
@@ -65,17 +66,17 @@ def main(config=None):
     }
 
    
-    with wandb.init(project='clipping', entity=ENTITY, sync_tensorboard=True) as run:
+    with wandb.init(project='clipping', sync_tensorboard=True) as run:
         cfg = run.config
         config = cfg.as_dict()
 
-        clip_method = 'hard'
+        clip_method = 'new-soft'
 
         default_params = id_to_params[env_id]
 
         wandb.log({'clip_method': clip_method, 'env_id': env_id})
         agent = SoftQAgent(env, **default_params, **config,
-                            device='auto', log_interval=1000,
+                            device='auto', log_interval=200,
                             tensorboard_log='logs', num_nets=1, 
                             render=False,
                             clip_method=clip_method)

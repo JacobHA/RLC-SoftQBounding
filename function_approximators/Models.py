@@ -1,19 +1,13 @@
 import torch
 import torch.nn as nn
 from torch.distributions import Categorical
-import numpy as np
-from stable_baselines3.common.utils import polyak_update, zip_strict
+from stable_baselines3.common.utils import polyak_update
 from stable_baselines3.common.preprocessing import preprocess_obs
-from gymnasium import spaces
-import gymnasium as gym
-from torch.optim.lr_scheduler import StepLR, MultiplicativeLR, LinearLR, ExponentialLR, LRScheduler
 
 import torch
 import torch.nn as nn
 import torch.nn.functional as F
-from torch.distributions import Normal
 
-from utils import is_tabular
 
 class Optimizers():
     def __init__(self, list_of_optimizers: list, scheduler_str: str = 'none'):
@@ -150,16 +144,14 @@ class SoftQNet(torch.nn.Module):
         super(SoftQNet, self).__init__()
         self.env = env
         self.nA = env.action_space.n
-        self.is_tabular = is_tabular(env)
         self.device = device
         # Start with an empty model:
         model = None
 
         self.nS = env.observation_space.shape
-        if self.is_tabular:
+        try:
             nS = env.observation_space.n
-
-        else:
+        except:
             nS = self.nS[0]
         input_dim = nS
         if perceptron:

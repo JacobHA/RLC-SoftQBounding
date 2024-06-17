@@ -4,10 +4,10 @@ import torch
 from torch.nn import functional as F
 from stable_baselines3.common.buffers import ReplayBuffer
 import gymnasium as gym
-from typing import Optional, Union, List, Tuple, Dict, Any, get_type_hints
+from typing import Optional, Union, Tuple
 from typeguard import typechecked
 import wandb
-from utils import is_tabular, log_class_vars, env_id_to_envs
+from utils import log_class_vars, env_id_to_envs
 
 HPARAM_ATTRS = {
     'beta': 'beta',
@@ -32,7 +32,7 @@ LOG_PARAMS = {
     'time/fps': 'fps',
     'time/num. updates': '_n_updates',
     'rollout/beta': 'beta',
-    'train/lr': 'lr',
+    'train/lr': 'learning_rate',
 }
 
 int_args = ['batch_size',
@@ -84,13 +84,7 @@ class BaseAgent:
                  seed: Optional[int] = None,
                  ) -> None:
 
-        # first check if Atari env or not:
-        if isinstance(env_id, str):
-            is_atari = 'NoFrameskip' in env_id or 'ALE' in env_id
-        else:
-            is_atari = False
-        self.env, self.eval_env = env_id_to_envs(
-            env_id, render, is_atari=is_atari)
+        self.env, self.eval_env = env_id_to_envs(env_id, render)
 
         if hasattr(self.env.unwrapped.spec, 'id'):
             self.env_str = self.env.unwrapped.spec.id
@@ -99,11 +93,8 @@ class BaseAgent:
         else:
             self.env_str = str(self.env.unwrapped)
 
-        self.is_tabular = is_tabular(self.env)
-
         self.learning_rate = learning_rate
         self.beta = beta
-        self.beta_schedule = beta_schedule
         self.batch_size = batch_size
         self.buffer_size = buffer_size
         self.batch_size = batch_size
@@ -132,7 +123,6 @@ class BaseAgent:
         self.aggregator_fn = str_to_aggregator[aggregator]
         self.avg_eval_rwd = None
         self.fps = None
-        self.beta_end = beta_end
         self.scheduler_str = scheduler_str
         self.train_this_step = False
         # Track the rewards over time:
@@ -154,7 +144,6 @@ class BaseAgent:
 
         self._n_updates = 0
         self.env_steps = 0
-        # self._initialize_networks()
         self.loss_fn = loss_fn
 
     def log_hparams(self, logger):
@@ -171,7 +160,7 @@ class BaseAgent:
         """
         raise NotImplementedError
 
-    def gradient_descent(self, batch, grad_step: int):
+    def gradient_descent(self, batch):
         """
         Do a gradient descent step
         """
@@ -185,11 +174,11 @@ class BaseAgent:
         
         # Increase update counter
         self._n_updates += gradient_steps
-        for grad_step in range(gradient_steps):
+        for _ in range(gradient_steps):
             # Sample a batch from the replay buffer:
             batch = self.replay_buffer.sample(batch_size)
 
-            loss = self.gradient_descent(batch, grad_step)
+            loss = self.gradient_descent(batch)
             self.optimizers.zero_grad()
 
             # Clip gradient norm
@@ -198,17 +187,10 @@ class BaseAgent:
             self.optimizers.step()
 
 
-    def learn(self, total_timesteps: int, early_stop: dict = {}) -> bool:
+    def learn(self, total_timesteps: int) -> bool:
         """
         Train the agent for total_timesteps
         """
-        stop_steps = early_stop.get('steps', 0)
-        if stop_steps > 0:
-            assert stop_steps % self.log_interval == 0, \
-                "early_stop['steps'] must be a multiple of log_interval, or will never be checked"
-        stop_reward = early_stop.get('reward', -np.inf)
-        self.betas = self._beta_scheduler(self.beta_schedule, total_timesteps)
-
         # Start a timer to log fps:
         self.initial_time = time.thread_time_ns()
 
@@ -220,10 +202,6 @@ class BaseAgent:
             self.rollout_reward = 0
             avg_ep_len = 0
             while not done and self.env_steps < total_timesteps:
-                # take a random action:
-                # if self.env_steps < self.learning_starts:
-                #     action = self.env.action_space.sample()
-                # else:
                 action = self.exploration_policy(state)
 
                 next_state, reward, terminated, truncated, infos = self.env.step(
@@ -253,7 +231,6 @@ class BaseAgent:
                 self.rollout_reward
                 self.logger.record("rollout/ep_reward", self.rollout_reward)
                 self.logger.record("rollout/avg_episode_length", avg_ep_len)
-                
                 if self.use_wandb:
                     wandb.log({'rollout/reward': self.rollout_reward})
                 
@@ -263,14 +240,12 @@ class BaseAgent:
         """
         This method is called after every step in the environment
         """
-        self.beta = self.betas[self.env_steps]
         self.env_steps += 1
 
         if self.train_this_step:
             if self.env_steps > self.learning_starts:
                 self._train(self.gradient_steps, self.batch_size)
                 
-
         if self.env_steps % self.target_update_interval == 0:
             self._update_target()
 
@@ -284,14 +259,9 @@ class BaseAgent:
         if self.env_steps > 0:
             self.avg_eval_rwd = self.evaluate()
             self.eval_auc += self.avg_eval_rwd
-        if self.save_checkpoints:
-            raise NotImplementedError
-            torch.save(self.online_logu.state_dict(),
-                       'sql-policy.para')
+        
         # Get the current learning rate from the optimizer:
-        self.lr = self.optimizers.get_lr()
         log_class_vars(self, self.logger, LOG_PARAMS, use_wandb=self.use_wandb)
-
         
         if self.use_wandb:
             wandb.log({'env_steps': self.env_steps,
@@ -329,19 +299,3 @@ class BaseAgent:
         self.avg_eval_rwd = avg_reward
         self.step_to_avg_eval_rwd[self.env_steps] = avg_reward
         return avg_reward
-
-    def _beta_scheduler(self, beta_schedule, total_timesteps):
-        # setup beta scheduling
-        if beta_schedule == 'exp':
-            self.betas = torch.exp(torch.linspace(np.log(self.beta), np.log(
-                self.beta_end), total_timesteps)).to(self.device)
-        elif beta_schedule == 'linear':
-            self.betas = torch.linspace(
-                self.beta, self.beta_end, total_timesteps).to(self.device)
-        elif beta_schedule == 'none':
-            self.betas = torch.tensor(
-                [self.beta] * total_timesteps).to(self.device)
-        else:
-            raise NotImplementedError(
-                f"Unknown beta schedule: {beta_schedule}")
-        return self.betas

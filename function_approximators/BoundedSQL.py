@@ -11,7 +11,7 @@ class SoftQAgent(BaseAgent):
                  *args,
                  gamma: float = 0.99,
                  clip_method: str = None,
-                 soft_weight = 0.01,
+                 soft_weight: float = 1.0,
                  perceptron_model=False,
                  **kwargs,
                  ):
@@ -62,7 +62,8 @@ class SoftQAgent(BaseAgent):
 
     def gradient_descent(self, batch):
         states, actions, next_states, dones, rewards = batch
-
+        curr_softq = torch.stack([softq(states).squeeze().gather(1, actions.long())
+                                for softq in self.online_softqs], dim=0)
         with torch.no_grad():
             if isinstance(self.env.observation_space, gymnasium.spaces.Discrete):
                 states = states.squeeze()
@@ -78,25 +79,26 @@ class SoftQAgent(BaseAgent):
                                  for target_softq in self.target_softqs]
             target_next_softqs = torch.stack(target_next_softqs, dim=0)
 
-            old_target = target_next_softqs
             target_curr_softqs = torch.stack([softq(states)
                                             for softq in self.target_softqs], dim=0)
             target_lb, target_ub = bounds(self.beta, self.gamma, rewards, dones, actions, target_next_softqs, target_curr_softqs)
 
             online_curr_softqs = torch.stack([softq(states)
                                             for softq in self.online_softqs], dim=0)
+            
             online_lb, online_ub = bounds(self.beta, self.gamma, rewards, dones, actions, online_softq_next, online_curr_softqs)
             # Take best bounds:
             ub = torch.min(online_ub, target_ub)
             lb = torch.max(online_lb, target_lb)
 
+            clipped_values = torch.clamp(curr_softq, min=lb, max=ub) 
             # Count number of clips by comparing old and new target:
-            num_clips = (old_target != target_next_softqs).sum().item()
+            num_clips = (clipped_values != curr_softq).sum().item()
             self.total_clips += num_clips
             self.logger.record("train/total_clips", self.total_clips)
 
             # Average magnitude of bound violations:
-            avg_violation = (old_target - target_next_softqs).abs().mean().item()
+            avg_violation = (clipped_values - curr_softq).abs().mean().item()
 
             # Log these values:
             self.logger.record("train/target_clipped", num_clips)
@@ -112,12 +114,13 @@ class SoftQAgent(BaseAgent):
             target_next_softq = self.aggregator_fn(target_next_softqs, dim=0)
             next_v = 1/self.beta * (torch.logsumexp(
                 self.beta * target_next_softq, dim=-1) - torch.log(torch.Tensor([self.nA])).to(self.device))
-
             next_v = next_v.reshape(-1, 1)
 
             # Backup equation:
             expected_curr_softq = rewards + self.gamma * next_v * (1-dones)
             expected_curr_softq = expected_curr_softq.squeeze(1)
+            # clamped_soft_q = rewards + self.gamma * clamped_next_v * (1-dones)
+            # clamped_soft_q = clamped_soft_q.squeeze(1)
 
             clamped_soft_q = torch.clamp(expected_curr_softq, min=lb.squeeze(), max=ub.squeeze())
 
@@ -125,8 +128,7 @@ class SoftQAgent(BaseAgent):
             if 'hard' in self.clip_method:
                 expected_curr_softq = clamped_soft_q
 
-        curr_softq = torch.stack([softq(states).squeeze().gather(1, actions.long())
-                        for softq in self.online_softqs], dim=0)
+        
 
         # clip the online curr soft q, then gather the actions:
         lb = lb.unsqueeze(0).repeat(self.num_nets, 1, 1)
@@ -147,9 +149,9 @@ class SoftQAgent(BaseAgent):
                        for softq in curr_softq)
         if 'soft' in self.clip_method:
             # add the magnitude of bound violations to the loss:
-            clip_loss = torch.nn.functional.huber_loss(clipped_curr_softq.squeeze(2), 
-                                                        curr_softq, 
-                                                        reduction='mean')
+            clip_loss = self.loss_fn(clipped_curr_softq.squeeze(2), 
+                                    curr_softq, 
+                                    reduction='mean')
             # log the clip loss:
             self.logger.record("train/clip_loss", clip_loss.detach().item())
             loss += self.soft_weight * clip_loss
