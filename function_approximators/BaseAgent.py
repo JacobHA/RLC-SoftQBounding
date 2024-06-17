@@ -269,12 +269,7 @@ class BaseAgent:
         if self.train_this_step:
             if self.env_steps > self.learning_starts:
                 self._train(self.gradient_steps, self.batch_size)
-                # self.pretrain_descent(self.gradient_steps, self.batch_size)
-
-            else:
-                # Pretrain:
-                if self.pretrain:
-                    self.pretrain_descent(self.gradient_steps, self.batch_size)
+                
 
         if self.env_steps % self.target_update_interval == 0:
             self._update_target()
