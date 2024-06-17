@@ -157,7 +157,7 @@ if __name__ == '__main__':
         csv_files = ['lr_sweep.csv', 'lr_sweep_propalgo_fast.csv',#'lr_sweep2.csv',# 'lr_sweep_propalgo.csv',
                      'mf_lr_sweep_propalgo_fast.csv'] #'lr_sweep_propalgo_fast.csv',]
         csv_files = ['lr_bigmaze.csv']#['big_lr_sweep_propalgo_fast.csv']
-        csv_files = ['lr_smallmaze.csv']
+        csv_files = ['lr_smallmaze.csv', 'lr_smallmaze_mf.csv']
 
         for csv_file in csv_files:
             custom_names = None
@@ -169,9 +169,24 @@ if __name__ == '__main__':
                 custom_names = ['Clipping:\nLearned Model']
                 custom_symbols = ['*']
                 custom_colors = ['g']
+            # elif csv_file == 'lr_smallmaze.csv':
+                # custom_names = ['Clipping:\nAlgorithm 1']
+                # custom_symbols = ['o']
+                # # dark red:
+                # custom_colors = ['#8B0000']
+            elif csv_file == 'lr_smallmaze2.csv':
+                custom_names = ['Clipping:\nAlgorithm 2']
+                custom_symbols = ['*']
+                # bright pink:
+                custom_colors = ['#FF007F']
+            elif csv_file == 'lr_smallmaze_mf.csv':
+                custom_names = ['Clipping:\nLearned Model']
+                custom_symbols = ['*']
+                custom_colors = ['g']
+
             plot_all(ax, csv_file, data_name, 
                      custom_names=custom_names,
                      custom_symbols=custom_symbols,
                      custom_colors=custom_colors,
-                     name='small',                     
+                     name='small2',                     
                      )

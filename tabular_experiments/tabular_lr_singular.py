@@ -14,7 +14,7 @@ args = parser.parse_args()
 clip = args.clip
 naive = args.naive
 lr = args.lr
-path = 'lr_smallmaze.csv'
+path = 'lr_smallmaze_mf.csv'
 
 # check that the csv file exists:
 if not os.path.exists(path):
@@ -35,7 +35,7 @@ for num in range(30):
     desc = list(desc)
 
     def process_map(_):
-        return main_sweep(desc, lr=lr, give_model=True, clip=clip, naive=naive)
+        return main_sweep(desc, lr=lr, give_model=False, clip=clip, naive=naive)
 
     # Number of random maps
     n_random_maps = 1
@@ -55,7 +55,7 @@ for num in range(30):
 
     # Log this run's average reward to a csv file:
 
-
+    print(f"Average reward: {average_reward}, Average gaps: {average_gaps}")
     data = {'clip': [clip], 'naive': [naive], 'lr': [lr], 'avg_reward': [average_reward], 'avg_gap': [average_gaps]}
     # add the new data to the most up-to-date df:
     df = pd.read_csv(path)

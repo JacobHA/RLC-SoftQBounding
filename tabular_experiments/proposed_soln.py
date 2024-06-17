@@ -287,12 +287,18 @@ class NewSoftQLearning():
             dyn = get_mdp_generator(self.env, 
                             csr_matrix(p.T), 
                             self.prior_policy)
+            # print the error in dynamics:
+            # print(np.abs(dyn - self.mdp_generator).max())
+
 
         # Qj = np.log(self.mdp_generator.T.dot(np.exp(self.beta * Qi.T)).T) / self.beta
-        baseline = (np.mean(Qi) + np.min(Qi)) / 2
+        baseline = (np.max(Qi) + np.min(Qi)) / 2
         Qi -= baseline
-        Qj = np.log(dyn.T.dot(np.exp(self.beta * Qi.T)).T) / self.beta + baseline
-        Qi += baseline
+        # print(baseline)
+        # print(Qi)
+        Qj = np.log(dyn.T.dot(np.exp(self.beta * Qi.T)).T ) / self.beta
+        # use logsumexp for fast
+        # Qi += baseline
         # ignore the Qj's that are inf:
         finite = np.where(np.isfinite(Qj) & np.isfinite(Qi))
         # mask with the visible mask:
@@ -338,7 +344,7 @@ class NewSoftQLearning():
         
 nS_to_settings = {
     49: {'gamma': 0.98, 'max_steps': 200_000, 'eval_freq': 100, 'bound_update_freq': 1},
-    144: {'gamma': 0.98, 'max_steps': 600_000, 'eval_freq': 300, 'bound_update_freq': 30},
+    144: {'gamma': 0.98, 'max_steps': 50_000, 'eval_freq': 100, 'bound_update_freq': 30},
 }
 
 def main_sweep(map_desc, lr, give_model, clip, naive=False, plot=False):
@@ -392,8 +398,6 @@ def main_sweep(map_desc, lr, give_model, clip, naive=False, plot=False):
 
     return normalized_reward / num_runs, normalized_gap / num_runs
 
-
-
 if __name__ == '__main__':
     import argparse
     parser = argparse.ArgumentParser()
@@ -405,7 +409,7 @@ if __name__ == '__main__':
     parser.add_argument('--lr', type=float, default=0.01)
     args = parser.parse_args()
 
-    desc = list(np.load(f'mazes/random_mazes/random_map_0.npy'))
+    desc = list(np.load(f'mazes/med_random_mazes/random_map_0.npy'))
 
     for _ in range(args.n):
-        main_sweep(desc, args.lr, clip=args.clip, give_model=True, plot=True)
+        main_sweep(desc, args.lr, clip=args.clip, give_model=False, plot=0)

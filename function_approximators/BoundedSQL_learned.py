@@ -63,6 +63,9 @@ class SoftQAgent(BaseAgent):
         # Make (all) softqs learnable:
         opts = [torch.optim.Adam(softq.parameters(), lr=self.learning_rate)
                 for softq in self.online_softqs]
+        # add the lower and upper bound networks to the optimizer:
+        opts += [torch.optim.Adam(self.lower_bound_net.parameters(), lr=self.learning_rate),
+                 torch.optim.Adam(self.upper_bound_net.parameters(), lr=self.learning_rate)]
         self.optimizers = Optimizers(opts, self.scheduler_str)
 
     def exploration_policy(self, state: np.ndarray) -> int:
@@ -99,17 +102,26 @@ class SoftQAgent(BaseAgent):
                                             for softq in self.online_softqs], dim=0)
             online_lb, online_ub = bounds(self.beta, self.gamma, rewards, dones, actions, online_softq_next, online_curr_softqs)
             ub = torch.min(online_ub, target_ub)
-            # calculate ub loss by comparing with the learned bound net:
-            ub_net = self.upper_bound_net(states).squeeze()
-            ub_loss = self.loss_fn(ub_net, ub)
+            ub = torch.min(ub, torch.zeros_like(ub))
+
             # take mean of bounds:
             # ub = 0.5*(online_ub + target_ub)
             # ub = target_ub
 
             # Take best bounds:
             lb = torch.max(online_lb, target_lb)
+            lb = torch.max(lb, -1/(1-self.gamma)*torch.ones_like(lb))
+
+            # check if lb > ub -- if so, reset those values to the naive bounds:
+            invalid_mask = lb > ub
+            lb[invalid_mask] = -1/(1-self.gamma)*torch.ones_like(lb)[invalid_mask]
+            ub[invalid_mask] = torch.zeros_like(ub)[invalid_mask]
+
+            # calculate ub loss by comparing with the learned bound net:
+            ub_net = self.upper_bound_net(states).gather(1, actions.long())
+            ub_loss = self.loss_fn(ub_net, ub)
             # calculate lb loss by comparing with the learned bound net:
-            lb_net = self.lower_bound_net(states).squeeze()
+            lb_net = self.lower_bound_net(states).gather(1, actions.long())
             lb_loss = self.loss_fn(lb_net, lb)
             # lb = 0.5*(online_lb + target_lb)
 
@@ -141,7 +153,7 @@ class SoftQAgent(BaseAgent):
             next_v = next_v.reshape(-1, 1)
 
             # "Backup" eigenvector equation:
-            expected_curr_softq = rewards + self.gamma * next_v * (1-dones)
+            expected_curr_softq = rewards + self.gamma * (next_v * (1-dones))# + dones * rewards / (1-self.gamma) )
             expected_curr_softq = expected_curr_softq.squeeze(1)
 
             clamped_soft_q = torch.clamp(expected_curr_softq, min=lb.squeeze(), max=ub.squeeze())

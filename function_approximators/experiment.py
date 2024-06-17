@@ -1,5 +1,5 @@
 import gymnasium
-from BoundedSQL import SoftQAgent
+from BoundedSQL_learned import SoftQAgent
 import wandb
 
 from gymnasium.wrappers import TimeLimit
@@ -76,7 +76,7 @@ def main(config=None):
     # env_id = 'Taxi-v3'
     # env_id = 'CliffWalking-v0'
     env_id = 'Acrobot-v1'
-    # env_id = 'LunarLander-v2'
+    env_id = 'LunarLander-v2'
     # env_id = 'ALE/Pong-v5'
     # env_id = 'FrozenLake-v1'
     # env_id = 'MountainCar-v0'
@@ -96,27 +96,28 @@ def main(config=None):
         cfg = run.config
         config = cfg.as_dict()
 
-        clip_method = 'soft-new_algo'
+        clip_method = 'naivereset-learned-soft'
         # clip_method = 'hard'
 
         default_params = id_to_params[env_id]
+        default_params['soft_weight'] = 0.01
         # default_params['learning_rate'] = 1e-3
         # default_params['batch_size'] = 1200
         
         wandb.log({'clip_method': clip_method, 'env_id': env_str})#, 'pretrain': pretrain})
         agent = SoftQAgent(env, **default_params, **config,
-                            device='auto', log_interval=50,
+                            device='auto', log_interval=1000,
                             tensorboard_log='pong', num_nets=1, 
                             render=False,
                             clip_method=clip_method)
         
         # Measure the time it takes to learn:
-        agent.learn(total_timesteps=5_000)
+        agent.learn(total_timesteps=150_000)
         wandb.finish()
 
 
 if __name__ == '__main__':
-    for _ in range(5):
+    for _ in range(20):
         main()
     # full_sweep_id='jacobhadamczyk/clipping/p76w2p4l'
     # wandb.agent(full_sweep_id, function=main, count=500)
