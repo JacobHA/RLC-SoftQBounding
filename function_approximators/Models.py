@@ -15,40 +15,19 @@ from torch.distributions import Normal
 
 from utils import is_tabular
 
-
-class EmptyScheduler(LRScheduler):
-    def __init__(self, *args, **kwargs):
-        super().__init__(*args, **kwargs)
-    def get_lr(self):
-        return [pg['lr'] for pg in self.optimizer.param_groups]
-
-str_to_scheduler = {
-    "step": (StepLR, {'step_size': 100_000, 'gamma': 0.5}),
-    # "MultiplicativeLR": (MultiplicativeLR, ()), 
-    "linear": (LinearLR, {"start_factor":1./3, "end_factor":1.0, "last_epoch":-1}), 
-    "exponential": (ExponentialLR, {'gamma': 0.9999}), 
-    "none": (EmptyScheduler, {"last_epoch":-1})
-}
-
 class Optimizers():
     def __init__(self, list_of_optimizers: list, scheduler_str: str = 'none'):
+        assert scheduler_str == 'none', "only 'none' is supported for now."
         self.optimizers = list_of_optimizers
-        scheduler_str = scheduler_str.lower()
-        scheduler, params = str_to_scheduler[scheduler_str]
-        
-        self.schedulers = [scheduler(opt, **params) for opt in self.optimizers]
 
     def zero_grad(self):
         for opt in self.optimizers:
             opt.zero_grad()
 
     def step(self):
-        for opt, scheduler in zip(self.optimizers, self.schedulers):
+        for opt in self.optimizers:
             opt.step()
-            scheduler.step()
 
-    def get_lr(self):
-        return self.schedulers[0].get_lr()[0]
 
 class TargetNets():
     def __init__(self, list_of_nets):
@@ -138,8 +117,6 @@ class OnlineNets():
             torch.nn.utils.clip_grad_norm_(net.parameters(), max_grad_norm)
 
 
-
-
 class OnlineSoftQNets(OnlineNets):
     def __init__(self, list_of_nets, aggregator_fn, beta, is_vector_env=False):
         super().__init__(list_of_nets, aggregator_fn, is_vector_env)
@@ -199,7 +176,7 @@ class SoftQNet(torch.nn.Module):
         model.to(self.device)
         self.model = model
     
-    def forward(self, x, eval=False, scale_factor = 1):
+    def forward(self, x, eval=False):
         if not isinstance(x, torch.Tensor):
             x = torch.tensor(x, device=self.device)  # Convert to PyTorch tensor
         
@@ -210,4 +187,3 @@ class SoftQNet(torch.nn.Module):
 
         x = self.model(x)
         return x
-        # return scale_factor * (1 + x)
