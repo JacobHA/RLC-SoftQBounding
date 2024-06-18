@@ -29,3 +29,9 @@ To prepare an environment with conda:
 ```python experiments.py --env_id=CartPole-v1 --do_sweep=True```
 2. extract the best hparams logged with wandb   
 ```python wandb_best_hparams.py --env_id=CartPole-v1 --entity=your_wandb_entity```
+
+## Tabular experiments
+
+### reproduce the figures
+1. Run the lr sweep for each of the methods of interest. It will use 30 mazes contained in the mazes directory.
+```python tabular_experiments/tabular_lr_sensitivity.py```
