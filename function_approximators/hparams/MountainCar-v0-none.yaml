@@ -1,9 +1,10 @@
 batch_size: 128
-beta: 10
+beta: 1
 clip_method: none
 gradient_steps: 5
-hidden_dim: 128
+hidden_dim: 64
 learning_rate: 0.003
 soft_weight: 1.0
 target_update_interval: 1000
 train_freq: 5
+learning_starts: 10000

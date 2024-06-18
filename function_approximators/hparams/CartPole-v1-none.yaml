@@ -2,8 +2,9 @@ batch_size: 512
 beta: 0.019419325239076097
 clip_method: none
 gradient_steps: 16
-hidden_dim: 16
+hidden_dim: 64
 learning_rate: 0.015947269162579256
 soft_weight: 1.0
 target_update_interval: 1
 train_freq: 2
+learning_starts: 0

@@ -4,7 +4,7 @@ import torch
 from BaseAgent import BaseAgent
 from Models import SoftQNet, OnlineSoftQNets, Optimizers, TargetNets
 from utils import logger_at_folder
-from bound_utils import bounds
+from bound_utils import bounds, calculate_clip_loss
 
 class SoftQAgent(BaseAgent):
     def __init__(self,
@@ -147,17 +147,19 @@ class SoftQAgent(BaseAgent):
         # Calculate the softq ("critic") loss:
         loss = 0.5*sum(self.loss_fn(softq, expected_curr_softq)
                        for softq in curr_softq)
-        if 'soft' in self.clip_method:
-            # add the magnitude of bound violations to the loss:
-            clip_loss = self.loss_fn(clipped_curr_softq.squeeze(2), 
-                                    curr_softq, 
-                                    reduction='mean')
+        soft_loss = 0
+        if 'soft-' in self.clip_method:
+            # Get everything after "soft-":
+            clip_func = self.clip_method.split('soft-')[-1]
+            clip_loss = calculate_clip_loss(curr_softq, clipped_curr_softq, clip_func)
+
             # log the clip loss:
             self.logger.record("train/clip_loss", clip_loss.detach().item())
-            loss += self.soft_weight * clip_loss
+            soft_loss = self.soft_weight * clip_loss
+
         # log the loss:
         self.logger.record("train/loss", loss.item())
-        return loss
+        return loss + soft_loss
 
     def _update_target(self):
         # Do a Polyak update of parameters:

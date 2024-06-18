@@ -7,3 +7,4 @@ learning_rate: 0.0005
 soft_weight: 1.0
 target_update_interval: 10
 train_freq: 2
+learning_starts: 0
