@@ -18,14 +18,14 @@ To prepare an environment with conda:
 ## FA experiments
 
 ### reproduce the finetuned results
-1. Run the best hparams for an environmnet    
+1. Run the best hparams for an environment    
 ```python experiments.py --env_id=CartPole-v1```
 
 2. plot the results for the spcific environment    
 ```python tb_plotter.py --env_id=CartPole-v1```
 
 ### re-run the hparam sweep
-1. Run the hparam sweep for an environmnet    
+1. Run the hparam sweep for an environment    
 ```python experiments.py --env_id=CartPole-v1 --do_sweep=True```
 2. extract the best hparams logged with wandb   
 ```python wandb_best_hparams.py --env_id=CartPole-v1 --entity=your_wandb_entity```
