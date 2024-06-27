@@ -28,10 +28,6 @@ def preprocess(csv_file, steps=200_000):
     # Aggregate by group, calculating mean and SEM
     result = df.groupby(['lr', 'clip', 'naive']).agg(['mean', sem, 'count'])
 
-    # Rename columns for clarity
-    # result.columns = ['Mean', 'SEM']
-
-    # df = df.groupby(['lr', 'clip', 'naive']).agg({'avg_reward': ['mean', 'std']})
     df = result.reset_index()
     return df
 
@@ -98,21 +94,11 @@ def plot_all(ax, csv_file, value,
                 markersize = 16
             linewidth = 3
             if value == 'avg_gap':
-                # Rescale the x axis by a factor of lr:
-                x = subdf['lr']
                 # Add a bold line at y=0 to indicate optimal gap / tight bound:
                 ax.axhline(0, color='k', linestyle='--', alpha=0.5)
 
-            elif value == 'avg_reward':
-                x = subdf['lr']#np.abs(df[(df['clip'] == clip) & (df['naive'] == naive)]['avg_gap']['mean'])/subdf['lr']
-                # Rescale the x axis by a factor of lr:
-                # x = subdf['lr']
-                # markersize=4
-
-            # ax.plot(subdf['lr'], rwds, label=label, color=color, marker=marker, markersize=markersize)
-            # plt.fill_between(subdf['lr'], rwds - std,
-            #                 rwds + std, alpha=0.2,
-            #                     color=color)
+            x = subdf['lr']
+                
             # Plot with shading for error:
             ax.plot(x, rwds, label=label, color=color, marker=marker, 
                     markersize=markersize, lw=linewidth)
@@ -120,13 +106,11 @@ def plot_all(ax, csv_file, value,
                             rwds + std, alpha=0.2,
                                 color=color)
             
-            
     plt.xlabel('Learning Rate', fontdict={'fontsize': 18})
     # Change tick mark fonts:
     plt.xticks(fontsize=18)
     plt.yticks(fontsize=18)
-    # plt.ylim(1,200_000)
-    # plt.yscale('log')
+
 
     if value == 'avg_reward':
         plt.ylabel('Average Integrated\nEvaluation Reward (AUC)', fontdict={'fontsize': 18})
@@ -136,12 +120,8 @@ def plot_all(ax, csv_file, value,
         plt.ylabel('Average Gap Between Lower and Upper Bounds')
     plt.legend(loc='upper center', bbox_to_anchor=(0.45, 1.525), fancybox=True, 
                shadow=False, ncol=2, fontsize=16)
-    # plt.xlim(1e-5,1)
     # use grid lines with sns style:
     plt.grid(True, linestyle='--', alpha=0.7)
-    # plt.xlim(0,0.0001)
-
-    #plt.title('Learning Rate Sensitivity')
 
     plt.xscale('log')
     plt.tight_layout()
