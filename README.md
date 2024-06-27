@@ -1,4 +1,4 @@
-Welcome to the repository for the RLC 2024 paper titled "Boosting Soft Q-Learning by Bounding" by Jacob Adamczyk, Volodymyr Makarenko, Stas Tiomkin, and Rahul Kulkarni.
+Welcome to the repository for the [RLC 2024 paper titled "Boosting Soft Q-Learning by Bounding" by Jacob Adamczyk, Volodymyr Makarenko, Stas Tiomkin, and Rahul Kulkarni](https://arxiv.org/abs/2406.18033)
 Here you can reproduce the paper's experiments, and try bounded soft Q-learning on your own environments.
 
 
