@@ -1,0 +1,11 @@
+batch_size: 1000
+beta: 3
+clip_method: none
+gradient_steps: 1
+hidden_dim: 64
+learning_rate: 0.01
+soft_weight: 1.0
+target_update_interval: 2
+train_freq: 1
+learning_starts: 0
+env_kwargs: {is_slippery: False}

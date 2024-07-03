@@ -10,7 +10,7 @@ import time
 import torch
 import wandb
 
-def env_id_to_envs(env_id, render):
+def env_id_to_envs(env_id, render, kwargs={}):
     if isinstance(env_id, gym.Env):
         env = env_id
         # Make a new copy for the eval env:
@@ -19,8 +19,8 @@ def env_id_to_envs(env_id, render):
         return env, eval_env
     
     else:
-        env = gym.make(env_id)
-        eval_env = gym.make(env_id, render_mode='human' if render else None)
+        env = gym.make(env_id, **kwargs)
+        eval_env = gym.make(env_id, render_mode='human' if render else None, **kwargs)
         return env, eval_env
 
 

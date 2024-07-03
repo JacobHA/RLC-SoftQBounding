@@ -9,6 +9,14 @@ env_to_steps = {
     'MountainCar-v0': 500_000,
     'CartPole-v1': 10_000,
     'Acrobot-v1': 2_000,
+    'FrozenLake-v1': 10_000,
+}
+
+env_id_to_log_interval = {
+    'MountainCar-v0': 500,
+    'CartPole-v1': 500,
+    'Acrobot-v1': 100,
+    'FrozenLake-v1': 500,
 }
 
 int_hparams = {'train_freq', 'gradient_steps'}
@@ -63,9 +71,9 @@ def main(sweep_config=None, project=None, ft_params=None, fine_tune=False, log_d
                 full_config[k] = int(full_config[k])
 
             agent = SoftQAgent(env_id, **full_config,
-                                device=device, log_interval=500,
+                                device=device, log_interval=env_id_to_log_interval[env_id],
                                 tensorboard_log=log_dir, num_nets=1,
-                                render=False,)
+                                render=False)
 
             # Measure the time it takes to learn:
             agent.learn(total_timesteps=total_timesteps)

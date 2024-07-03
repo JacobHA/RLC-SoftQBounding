@@ -82,9 +82,10 @@ class BaseAgent:
                  scheduler_str: str = 'none',
                  beta_end: Optional[float] = None,
                  seed: Optional[int] = None,
+                 env_kwargs={},
                  ) -> None:
 
-        self.env, self.eval_env = env_id_to_envs(env_id, render)
+        self.env, self.eval_env = env_id_to_envs(env_id, render, kwargs=env_kwargs)
 
         if hasattr(self.env.unwrapped.spec, 'id'):
             self.env_str = self.env.unwrapped.spec.id
